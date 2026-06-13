@@ -14,6 +14,7 @@ NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
 # Property names in the Notion applications database (configurable per brief).
 NOTION_DATE_PROP = os.environ.get("NOTION_DATE_PROP", "Date")
 NOTION_STATUS_PROP = os.environ.get("NOTION_STATUS_PROP", "Status")
+NOTION_TIER_PROP = os.environ.get("NOTION_TIER_PROP", "Tier")
 
 
 def now_mx() -> datetime:

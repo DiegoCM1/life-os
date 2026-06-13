@@ -1,17 +1,31 @@
 // The centerpiece: habit buttons on the side, spiral grid on the right.
 // Tapping a button writes today's check-in and fills one green cell.
+// The spiral switches week/month/year via ?spiral= (server-rendered links).
 
 import { APPLICATIONS_DAILY_TARGET, GOALS } from '@/config/goals';
 import type { MonthLog, TodayLog } from '@/lib/api';
+import type { Range } from '@/lib/range';
 import NumberStepper from '@/components/NumberStepper';
+import RangeToggle from '@/components/RangeToggle';
 import HabitButton from './HabitButton';
-import HabitSpiral from './HabitSpiral';
+import HabitSpiral, { type SpiralRing } from './HabitSpiral';
 
-export default function HabitTracker({ todayLogs, monthLogs, today, appsCount }: {
+export default function HabitTracker({
+  todayLogs,
+  monthLogs,
+  rangeLogs,
+  appsDaily,
+  today,
+  appsCount,
+  spiralRange,
+}: {
   todayLogs: TodayLog[];
-  monthLogs: MonthLog[];
+  monthLogs: MonthLog[]; // current month only (button counts)
+  rangeLogs: MonthLog[]; // full window for the selected spiral range
+  appsDaily: { date: string; count: number }[]; // Notion applications per day
   today: string;
   appsCount: number | null;
+  spiralRange: Range;
 }) {
   const logByGoal = new Map(todayLogs.map((l) => [l.goal_id, l]));
 
@@ -22,9 +36,45 @@ export default function HabitTracker({ todayLogs, monthLogs, today, appsCount }:
 
   const appsDone = appsCount !== null && appsCount >= APPLICATIONS_DAILY_TARGET;
 
+  // ---- build one spiral ring per tracked thing (5 total) ----
+  const toggleGoals = GOALS.filter((g) => g.type === 'toggle');
+  const deepWork = GOALS.find((g) => g.type === 'number');
+
+  const rings: SpiralRing[] = [];
+
+  // toggles: 1 on done days
+  for (const g of toggleGoals) {
+    const fraction = new Map<string, number>();
+    for (const log of rangeLogs) {
+      if (log.goal_id === g.id && log.done) fraction.set(log.log_date, 1);
+    }
+    rings.push({ id: g.id, label: g.label, fraction });
+  }
+
+  // applications (Notion): fraction of the daily target met
+  const appsFraction = new Map<string, number>();
+  for (const d of appsDaily) {
+    if (d.count > 0) appsFraction.set(d.date, Math.min(1, d.count / APPLICATIONS_DAILY_TARGET));
+  }
+  rings.push({ id: 'applications', label: 'Applications', fraction: appsFraction });
+
+  // deep work hours: fraction of the daily target met
+  if (deepWork) {
+    const target = deepWork.target ?? 1;
+    const fraction = new Map<string, number>();
+    for (const log of rangeLogs) {
+      if (log.goal_id === deepWork.id && log.value)
+        fraction.set(log.log_date, Math.min(1, log.value / target));
+    }
+    rings.push({ id: deepWork.id, label: deepWork.label, fraction });
+  }
+
   return (
     <section className="card">
-      <h2 className="section-title">Habit tracker</h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="section-title mb-0">Habit tracker</h2>
+        <RangeToggle basePath="/" param="spiral" active={spiralRange} />
+      </div>
       <div className="flex flex-col gap-6 md:flex-row md:items-center">
         <div className="flex w-full flex-col gap-2.5 md:w-72">
           {GOALS.filter((g) => g.type === 'toggle').map((g) => (
@@ -66,7 +116,7 @@ export default function HabitTracker({ todayLogs, monthLogs, today, appsCount }:
         </div>
 
         <div className="flex flex-1 justify-center">
-          <HabitSpiral monthLogs={monthLogs} today={today} />
+          <HabitSpiral rings={rings} today={today} range={spiralRange} />
         </div>
       </div>
     </section>

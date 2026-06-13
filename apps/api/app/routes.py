@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from .auth import require_secret
 from .config import today_mx
 from .db import pool
-from .notion import applications_summary
+from .notion import applications_daily, applications_stats, applications_summary
 
 router = APIRouter(dependencies=[Depends(require_secret)])
 
@@ -223,3 +223,20 @@ async def get_applications() -> dict[str, Any]:
         # Notion being down must never blank the dashboard.
         return {"configured": True, "error": "notion_unavailable",
                 "today_count": None, "status_breakdown": {}}
+
+
+@router.get("/applications/stats")
+async def get_applications_stats() -> dict[str, Any]:
+    try:
+        return await applications_stats()
+    except Exception:
+        return {"configured": True, "error": "notion_unavailable",
+                "total": 0, "status_counts": {}, "tier_counts": {}}
+
+
+@router.get("/applications/daily")
+async def get_applications_daily(days: int = Query(default=30, ge=1, le=366)) -> dict[str, Any]:
+    try:
+        return await applications_daily(days)
+    except Exception:
+        return {"configured": True, "error": "notion_unavailable", "daily": []}

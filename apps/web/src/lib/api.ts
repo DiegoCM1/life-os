@@ -27,6 +27,18 @@ export type Fitness = {
   latest: Record<string, number>;
   series: Record<string, { date: string; value: number }[]>;
 };
+export type AppsDaily = {
+  configured: boolean;
+  error?: string;
+  daily: { date: string; count: number }[];
+};
+export type AppsStats = {
+  configured: boolean;
+  error?: string;
+  total: number;
+  status_counts: Record<string, number>;
+  tier_counts: Record<string, number>;
+};
 
 async function apiGet<T>(path: string, fallback: T): Promise<T> {
   try {
@@ -66,5 +78,16 @@ export const getApplications = () =>
   });
 
 export const getFitness = () => apiGet<Fitness>('/fitness', { latest: {}, series: {} });
+
+export const getApplicationsDaily = (days = 30) =>
+  apiGet<AppsDaily>(`/applications/daily?days=${days}`, { configured: false, daily: [] });
+
+export const getApplicationsStats = () =>
+  apiGet<AppsStats>('/applications/stats', {
+    configured: false,
+    total: 0,
+    status_counts: {},
+    tier_counts: {},
+  });
 
 export const getStatus = () => apiGet<Record<string, string>>('/status', {});

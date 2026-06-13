@@ -19,6 +19,13 @@ export function nowPartsMx(): { hour: number; minute: number; second: number } {
   return { hour: get('hour') % 24, minute: get('minute'), second: get('second') };
 }
 
+/** ISO date shifted by `delta` days (noon UTC base avoids DST edge cases). */
+export function isoAddDays(iso: string, delta: number): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Days from today (tz-aware) until an ISO date, floored at 0. */
 export function daysUntil(isoDate: string): number {
   const ms = new Date(`${isoDate}T00:00:00`).getTime() - new Date(`${todayMx()}T00:00:00`).getTime();

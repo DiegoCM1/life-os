@@ -23,8 +23,9 @@ fullscreen Chromium.
   endpoints.
 - **Two stores, one view:** applications live in Notion (read-only here),
   everything else in Postgres. Merged only at display time.
-- Day boundaries and the 11:00 AM deadline are computed in
-  **America/Mexico_City** on both server and client, regardless of device tz.
+- Day boundaries and the daily deadlines (applications by 9:00 AM, post + prep
+  by 7:00 PM) are computed in **America/Mexico_City** on both server and
+  client, regardless of device tz.
 
 ## Repo layout
 
