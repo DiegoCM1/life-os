@@ -26,7 +26,7 @@ export type GoalDef = {
 export const GOALS: GoalDef[] = [
   { id: 'posted', label: 'Posted', type: 'toggle' },
   { id: 'calisthenics', label: 'Calisthenics', type: 'toggle' },
-  { id: 'reading', label: 'Read', type: 'toggle' },
+  { id: 'interview_prep', label: 'Interview Prep + Studying', type: 'toggle' },
   { id: 'deep_work_hours', label: 'Deep work', type: 'number', unit: 'h', target: 4 },
 ];
 
