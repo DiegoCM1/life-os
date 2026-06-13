@@ -58,7 +58,7 @@ alter table public.status_field enable row level security;
 -- so its streak is the stored current_streak (update via PATCH /bets/{id}).
 insert into public.bet (name, enforcer, rule_summary, stake, reward, goal_id, payout_every_days) values
   ('Daily applications bet', 'Accountability partner', 'Hit the daily application target before 11:00 AM every weekday or pay the stake.', 50, 100, null, 30),
-  ('Calisthenics bet', 'Gym partner', 'Train calisthenics every scheduled day; miss a day and the streak resets.', 50, 100, 'calisthenics', 30);
+  ('Posted bet', 'Accountability partner', 'Post every day; miss a day and the streak resets.', 50, 100, 'posted', 30);
 
 insert into public.status_field (key, value) values
   ('project_milestone', 'Define current milestone in the dashboard');
