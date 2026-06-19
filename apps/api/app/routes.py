@@ -219,7 +219,8 @@ async def put_status(key: str, body: StatusPut) -> dict[str, str]:
 async def get_applications() -> dict[str, Any]:
     try:
         return await applications_summary()
-    except Exception:
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error("Notion error: %s", e)
         # Notion being down must never blank the dashboard.
         return {"configured": True, "error": "notion_unavailable",
                 "today_count": None, "status_breakdown": {}}
@@ -229,7 +230,8 @@ async def get_applications() -> dict[str, Any]:
 async def get_applications_stats() -> dict[str, Any]:
     try:
         return await applications_stats()
-    except Exception:
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error("Notion error: %s", e)
         return {"configured": True, "error": "notion_unavailable",
                 "total": 0, "status_counts": {}, "tier_counts": {}}
 
@@ -238,5 +240,6 @@ async def get_applications_stats() -> dict[str, Any]:
 async def get_applications_daily(days: int = Query(default=30, ge=1, le=366)) -> dict[str, Any]:
     try:
         return await applications_daily(days)
-    except Exception:
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error("Notion error: %s", e)
         return {"configured": True, "error": "notion_unavailable", "daily": []}

@@ -14,7 +14,7 @@ export const DEADLINES = {
 };
 
 // How many applications must be in Notion (dated today) before the deadline.
-export const APPLICATIONS_DAILY_TARGET = 5;
+export const APPLICATIONS_DAILY_TARGET = 6;
 
 // Shown on the top card once BOTH deadlines are cleared. Rotates.
 export const VICTORY_LINES = [
@@ -156,10 +156,9 @@ export const DATED_GOAL = {
 };
 
 // The un-scoreable corner. Deliberately not graded.
-export const CURRENT_BOOK = 'Set your current book in src/config/goals.ts';
+export const CURRENT_BOOK = 'Sapiens';
 export const MANTRAS = [
-  'Control the inputs. Ignore the scoreboard.',
-  'Done before 11.',
+  'Focus on the inputs. Ignore the scoreboard. You only care about what you can control',
   'Show up, especially when it is small.',
   'You only log what you did, never what they decided.',
 ];
