@@ -2,10 +2,23 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatTimeMx } from '@/lib/time';
 
-// Side button for one habit ring: tapping it marks today done and drops one
-// green square into the spiral (toggling again removes it).
-export default function HabitButton({ goalId, label, done, late, monthCount, streak, logDate }: {
+// Side button for one habit ring: tapping it marks the day done and drops one
+// green square into the spiral (toggling again removes it). One-shot goals (e.g.
+// "Wake up early") lock after the first press and show the time they were
+// pressed — there's no undo, and the press time is the whole point.
+export default function HabitButton({
+  goalId,
+  label,
+  done,
+  late,
+  monthCount,
+  streak,
+  logDate,
+  oneShot = false,
+  doneAt = null,
+}: {
   goalId: string;
   label: string;
   done: boolean;
@@ -13,13 +26,17 @@ export default function HabitButton({ goalId, label, done, late, monthCount, str
   monthCount: number;
   streak: number;
   logDate: string;
+  oneShot?: boolean; // lock after first press, never untoggle
+  doneAt?: string | null; // ISO press time, shown for one-shot goals
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<boolean | null>(null);
   const [, startTransition] = useTransition();
   const isDone = optimistic ?? done;
+  const locked = oneShot && isDone; // irreversible once done
 
   async function toggle() {
+    if (locked) return;
     const next = !isDone;
     setOptimistic(next);
     const res = await fetch('/api/log', {
@@ -42,7 +59,10 @@ export default function HabitButton({ goalId, label, done, late, monthCount, str
   return (
     <button
       onClick={toggle}
+      disabled={locked}
       className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+        locked ? 'cursor-default' : ''
+      } ${
         isLate ? 'border-warn bg-warn-dim' : isDone ? 'border-good bg-good-dim' : 'border-edge bg-well'
       }`}
     >
@@ -52,6 +72,11 @@ export default function HabitButton({ goalId, label, done, late, monthCount, str
         }`}
       />
       <span className="flex-1">{label}</span>
+      {oneShot && isDone && doneAt && (
+        <span className={`text-xs font-semibold tabular-nums ${isLate ? 'text-warn' : 'text-good'}`}>
+          {formatTimeMx(doneAt)}
+        </span>
+      )}
       {isLate && (
         <span className="rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
           Late

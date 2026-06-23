@@ -22,6 +22,7 @@ export const APPLICATIONS_DAILY_TARGET = 6;
 // deadline conceptually, but Notion only gives date-level counts with no
 // per-application time, so lateness can't be detected for it.)
 export const GOAL_DEADLINE_HOUR: Record<string, number> = {
+  wake_up: 8,
   posted: 19,
   interview_prep: 19,
 };
@@ -88,19 +89,17 @@ export const VICTORY_LINES = [
 export type GoalDef = {
   id: string;
   label: string;
-  type: 'toggle' | 'number';
-  unit?: string;
-  /** daily target for number goals */
-  target?: number;
+  /** one-shot goals lock after the first press and record the press time (done_at). */
+  oneShot?: boolean;
 };
 
 // Today's non-negotiables, logged by tapping in the web app.
 // (Applications are NOT here — they come read-only from Notion.)
 export const GOALS: GoalDef[] = [
-  { id: 'posted', label: 'Posted', type: 'toggle' },
-  { id: 'calisthenics', label: 'Calisthenics', type: 'toggle' },
-  { id: 'interview_prep', label: 'Interview Prep + Studying', type: 'toggle' },
-  { id: 'deep_work_hours', label: 'Deep work', type: 'number', unit: 'h', target: 4 },
+  { id: 'wake_up', label: 'Wake up early', oneShot: true },
+  { id: 'posted', label: 'Posted' },
+  { id: 'calisthenics', label: 'Calisthenics' },
+  { id: 'interview_prep', label: 'Interview Prep + Studying' },
 ];
 
 // Clickable topic cards at the bottom of the dashboard; each opens /topic/<id>
@@ -113,6 +112,7 @@ export type TopicDef = {
 
 export const TOPICS: TopicDef[] = [
   { id: 'applications', label: 'Applications', kind: 'applications' },
+  { id: 'wake_up', label: 'Wake up early', kind: 'habit' },
   { id: 'posted', label: 'Posted', kind: 'habit' },
   { id: 'calisthenics', label: 'Calisthenics', kind: 'habit' },
   { id: 'interview_prep', label: 'Interview Prep + Studying', kind: 'habit' },

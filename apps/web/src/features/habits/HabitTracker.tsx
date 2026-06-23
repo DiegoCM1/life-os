@@ -6,7 +6,6 @@ import { APPLICATIONS_DAILY_TARGET, GOAL_DEADLINE_HOUR, GOALS } from '@/config/g
 import type { MonthLog, TodayLog } from '@/lib/api';
 import type { Range } from '@/lib/range';
 import { isLate, isoAddDays, nowPartsMx } from '@/lib/time';
-import NumberStepper from '@/components/NumberStepper';
 import RangeToggle from '@/components/RangeToggle';
 import ActivityNote from './ActivityNote';
 import HabitButton from './HabitButton';
@@ -76,14 +75,11 @@ export default function HabitTracker({
     return { required, note, show: required || note.trim() !== '' };
   };
 
-  // ---- build one spiral ring per tracked thing (5 total) ----
-  const toggleGoals = GOALS.filter((g) => g.type === 'toggle');
-  const deepWork = GOALS.find((g) => g.type === 'number');
-
+  // ---- build one spiral ring per tracked thing ----
   const rings: SpiralRing[] = [];
 
-  // toggles: 1 on done days; track which of those were completed late
-  for (const g of toggleGoals) {
+  // habit toggles: 1 on done days; track which of those were completed late
+  for (const g of GOALS) {
     const hour = GOAL_DEADLINE_HOUR[g.id];
     const fraction = new Map<string, number>();
     const lateDates = new Set<string>();
@@ -103,17 +99,6 @@ export default function HabitTracker({
   }
   rings.push({ id: 'applications', label: 'Applications', fraction: appsFraction });
 
-  // deep work hours: fraction of the daily target met
-  if (deepWork) {
-    const target = deepWork.target ?? 1;
-    const fraction = new Map<string, number>();
-    for (const log of rangeLogs) {
-      if (log.goal_id === deepWork.id && log.value)
-        fraction.set(log.log_date, Math.min(1, log.value / target));
-    }
-    rings.push({ id: deepWork.id, label: deepWork.label, fraction });
-  }
-
   return (
     <section className="card">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -122,7 +107,7 @@ export default function HabitTracker({
       </div>
       <div className="flex flex-col gap-6 md:flex-row md:items-center">
         <div className="flex w-full flex-col gap-2.5 md:w-72">
-          {toggleGoals.map((g) => {
+          {GOALS.map((g) => {
             const log = logByGoal.get(g.id);
             const ns = noteState(g.id, log?.done === true);
             return (
@@ -135,6 +120,8 @@ export default function HabitTracker({
                   monthCount={monthDoneCount.get(g.id) ?? 0}
                   streak={streakFor(g.id)}
                   logDate={selectedDay}
+                  oneShot={g.oneShot}
+                  doneAt={log?.done_at ?? null}
                 />
                 {ns.show && (
                   <ActivityNote
@@ -162,32 +149,6 @@ export default function HabitTracker({
             <span className="flex-1">Applications</span>
             <span className="text-[10px] uppercase tracking-wide text-sub">Notion</span>
           </div>
-
-          {GOALS.filter((g) => g.type === 'number').map((g) => {
-            const log = logByGoal.get(g.id);
-            const value = log?.value ?? 0;
-            const ns = noteState(g.id, value >= (g.target ?? Infinity));
-            return (
-              <div key={g.id} className="flex flex-col gap-2">
-                <NumberStepper
-                  id={g.id}
-                  label={g.label}
-                  unit={g.unit}
-                  target={g.target}
-                  value={value}
-                  logDate={selectedDay}
-                />
-                {ns.show && (
-                  <ActivityNote
-                    goalId={g.id}
-                    logDate={selectedDay}
-                    initialNote={ns.note}
-                    required={ns.required}
-                  />
-                )}
-              </div>
-            );
-          })}
         </div>
 
         <div className="flex flex-1 justify-center">

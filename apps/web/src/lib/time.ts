@@ -60,6 +60,16 @@ export function isLate(logDate: string, doneAtIso: string | null, hour: number |
   return stamp > `${logDate} ${String(hour).padStart(2, '0')}:00:00`;
 }
 
+/** Wall-clock time of an instant in TIMEZONE, e.g. "6:45 AM". */
+export function formatTimeMx(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    timeZone: TIMEZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 /** Human label for an ISO date, e.g. "Wed, Jun 18" (UTC base, tz-stable). */
 export function formatDay(iso: string): string {
   return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
