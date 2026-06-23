@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 
 // One stepper for daily number goals (/api/log) — tap-only logging, no free
 // text (brief §5).
-export default function NumberStepper({ id, label, value, unit, step = 1, target }: {
+export default function NumberStepper({ id, label, value, unit, step = 1, target, logDate }: {
   id: string;
   label: string;
   value: number;
   unit?: string;
   step?: number;
   target?: number;
+  logDate: string;
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<number | null>(null);
@@ -24,7 +25,7 @@ export default function NumberStepper({ id, label, value, unit, step = 1, target
     const res = await fetch('/api/log', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ goal_id: id, value: next }),
+      body: JSON.stringify({ goal_id: id, value: next, log_date: logDate }),
     });
     if (!res.ok) setOptimistic(null);
     startTransition(() => router.refresh());

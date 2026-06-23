@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 
 // Side button for one habit ring: tapping it marks today done and drops one
 // green square into the spiral (toggling again removes it).
-export default function HabitButton({ goalId, label, done, monthCount, streak }: {
+export default function HabitButton({ goalId, label, done, monthCount, streak, logDate }: {
   goalId: string;
   label: string;
   done: boolean;
   monthCount: number;
   streak: number;
+  logDate: string;
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<boolean | null>(null);
@@ -23,7 +24,7 @@ export default function HabitButton({ goalId, label, done, monthCount, streak }:
     const res = await fetch('/api/log', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ goal_id: goalId, done: next }),
+      body: JSON.stringify({ goal_id: goalId, done: next, log_date: logDate }),
     });
     if (!res.ok) setOptimistic(null);
     startTransition(() => router.refresh());

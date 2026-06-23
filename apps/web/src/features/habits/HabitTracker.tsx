@@ -12,23 +12,25 @@ import HabitButton from './HabitButton';
 import HabitSpiral, { type SpiralRing } from './HabitSpiral';
 
 export default function HabitTracker({
-  todayLogs,
+  dayLogs,
   monthLogs,
   rangeLogs,
   appsDaily,
   today,
+  selectedDay,
   appsCount,
   spiralRange,
 }: {
-  todayLogs: TodayLog[];
+  dayLogs: TodayLog[]; // the day being viewed/edited (today by default)
   monthLogs: MonthLog[]; // current month only (button counts)
   rangeLogs: MonthLog[]; // full window for the selected spiral range
   appsDaily: { date: string; count: number }[]; // Notion applications per day
   today: string;
+  selectedDay: string; // date that taps write to
   appsCount: number | null;
   spiralRange: Range;
 }) {
-  const logByGoal = new Map(todayLogs.map((l) => [l.goal_id, l]));
+  const logByGoal = new Map(dayLogs.map((l) => [l.goal_id, l]));
 
   const monthDoneCount = new Map<string, number>();
   for (const log of monthLogs) {
@@ -106,6 +108,7 @@ export default function HabitTracker({
               done={logByGoal.get(g.id)?.done ?? false}
               monthCount={monthDoneCount.get(g.id) ?? 0}
               streak={streakFor(g.id)}
+              logDate={selectedDay}
             />
           ))}
 
@@ -132,12 +135,13 @@ export default function HabitTracker({
               unit={g.unit}
               target={g.target}
               value={logByGoal.get(g.id)?.value ?? 0}
+              logDate={selectedDay}
             />
           ))}
         </div>
 
         <div className="flex flex-1 justify-center">
-          <HabitSpiral rings={rings} today={today} range={spiralRange} />
+          <HabitSpiral rings={rings} today={today} range={spiralRange} selectedDay={selectedDay} />
         </div>
       </div>
     </section>

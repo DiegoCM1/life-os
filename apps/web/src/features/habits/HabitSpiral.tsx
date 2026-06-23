@@ -54,6 +54,7 @@ type Segment = {
   key: string;
   label: string; // rim label ('' to hide)
   isCurrent: boolean;
+  isSelected: boolean; // the day being viewed/edited (when in the past)
   /** 0..1 fill for one ring's fraction map */
   fillFor: (fraction: Map<string, number>) => number;
 };
@@ -62,7 +63,7 @@ function weekdayIndexMx(iso: string): number {
   return (new Date(`${iso}T12:00:00Z`).getUTCDay() + 6) % 7;
 }
 
-function buildSegments(range: Range, today: string): Segment[] {
+function buildSegments(range: Range, today: string, selectedDay: string): Segment[] {
   if (range === 'week') {
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return Array.from({ length: 7 }, (_, i) => {
@@ -71,6 +72,7 @@ function buildSegments(range: Range, today: string): Segment[] {
         key: date,
         label: labels[weekdayIndexMx(date)],
         isCurrent: date === today,
+        isSelected: date === selectedDay,
         fillFor: (fraction) => fraction.get(date) ?? 0,
       };
     });
@@ -80,6 +82,7 @@ function buildSegments(range: Range, today: string): Segment[] {
     const thisMonday = isoAddDays(today, -weekdayIndexMx(today));
     return Array.from({ length: 52 }, (_, i) => {
       const monday = isoAddDays(thisMonday, -7 * (51 - i));
+      const sunday = isoAddDays(monday, 6);
       const isMonthStart = Number(monday.slice(8, 10)) <= 7;
       return {
         key: monday,
@@ -87,6 +90,7 @@ function buildSegments(range: Range, today: string): Segment[] {
           ? new Date(`${monday}T12:00:00Z`).toLocaleString('en', { month: 'short', timeZone: 'UTC' })
           : '',
         isCurrent: i === 51,
+        isSelected: selectedDay >= monday && selectedDay <= sunday,
         fillFor: (fraction) => {
           let sum = 0;
           for (let d = 0; d < 7; d++) sum += fraction.get(isoAddDays(monday, d)) ?? 0;
@@ -107,6 +111,7 @@ function buildSegments(range: Range, today: string): Segment[] {
       key: date,
       label: String(day),
       isCurrent: day === todayDay,
+      isSelected: date === selectedDay,
       fillFor: (fraction) => fraction.get(date) ?? 0,
     };
   });
@@ -123,17 +128,21 @@ function cellFill(fill: number, isPast: boolean, isCurrent: boolean): {
   return { className: isPast ? 'fill-edge/50' : 'fill-well stroke-edge' };
 }
 
-export default function HabitSpiral({ rings, today, range }: {
+export default function HabitSpiral({ rings, today, range, selectedDay }: {
   rings: SpiralRing[];
   today: string;
   range: Range;
+  selectedDay: string;
 }) {
-  const segments = buildSegments(range, today);
+  const segments = buildSegments(range, today, selectedDay);
   const n = segments.length;
   const anglePer = 360 / n;
   const angleGap = Math.min(1.6, anglePer * 0.15);
   const ringW = (OUTER_R - INNER_R) / rings.length - RING_GAP;
   const currentIndex = segments.findIndex((s) => s.isCurrent);
+  // Pink marker for a past day under review (today keeps its blue marker).
+  const isPastView = selectedDay < today;
+  const selectedIndex = isPastView ? segments.findIndex((s) => s.isSelected) : -1;
 
   const center =
     range === 'week'
@@ -160,6 +169,14 @@ export default function HabitSpiral({ rings, today, range }: {
         />
       )}
 
+      {/* selected past-day wedge highlight (pink) */}
+      {selectedIndex >= 0 && (
+        <path
+          d={cellPath(INNER_R - 6, OUTER_R + 6, selectedIndex * anglePer, (selectedIndex + 1) * anglePer)}
+          className="fill-[#ec4899]/15"
+        />
+      )}
+
       {rings.map((ring, ringIndex) => {
         const r0 = INNER_R + ringIndex * (ringW + RING_GAP);
         const r1 = r0 + ringW;
@@ -168,13 +185,14 @@ export default function HabitSpiral({ rings, today, range }: {
           const a1 = (i + 1) * anglePer - angleGap / 2;
           const isPast = currentIndex >= 0 && i < currentIndex;
           const style = cellFill(seg.fillFor(ring.fraction), isPast, seg.isCurrent);
+          const isSel = isPastView && seg.isSelected;
           return (
             <path
               key={`${ring.id}-${seg.key}`}
               d={cellPath(r0, r1, a0, a1)}
-              className={style.className}
+              className={`${style.className ?? ''} ${isSel ? 'stroke-[#ec4899]' : ''}`}
               fill={style.fill}
-              strokeWidth={1}
+              strokeWidth={isSel ? 2 : 1}
             >
               <title>{`${ring.label} · ${seg.key}`}</title>
             </path>
@@ -194,7 +212,11 @@ export default function HabitSpiral({ rings, today, range }: {
             textAnchor="middle"
             dominantBaseline="central"
             className={`tabular-nums ${range === 'month' ? 'text-[10px]' : 'text-[11px]'} ${
-              seg.isCurrent ? 'fill-accent font-bold' : 'fill-sub'
+              isPastView && seg.isSelected
+                ? 'fill-[#ec4899] font-bold'
+                : seg.isCurrent
+                  ? 'fill-accent font-bold'
+                  : 'fill-sub'
             }`}
           >
             {seg.label}

@@ -47,9 +47,6 @@ export function apiForward(path: string, method: string, body: unknown): Promise
   });
 }
 
-export const getToday = () =>
-  apiGet<{ date: string; logs: TodayLog[] }>('/today', { date: '', logs: [] });
-
 export const getLogs = (start: string, end: string) =>
   apiGet<{ logs: MonthLog[] }>(`/logs?start=${start}&end=${end}`, { logs: [] });
 

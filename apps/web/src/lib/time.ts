@@ -25,3 +25,23 @@ export function isoAddDays(iso: string, delta: number): string {
   d.setUTCDate(d.getUTCDate() + delta);
   return d.toISOString().slice(0, 10);
 }
+
+/** Sanitize a ?day= param: a real YYYY-MM-DD no later than today, else today. */
+export function parseDay(value: string | undefined, today: string): string {
+  if (!value) return today;
+  const d = new Date(`${value}T12:00:00Z`);
+  if (!Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value && value <= today) {
+    return value;
+  }
+  return today;
+}
+
+/** Human label for an ISO date, e.g. "Wed, Jun 18" (UTC base, tz-stable). */
+export function formatDay(iso: string): string {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
