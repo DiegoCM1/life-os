@@ -6,26 +6,11 @@ const API_SECRET = process.env.API_SECRET ?? '';
 
 export type TodayLog = { goal_id: string; done: boolean | null; value: number | null };
 export type MonthLog = TodayLog & { log_date: string };
-export type Bet = {
-  id: number;
-  name: string;
-  enforcer: string;
-  rule_summary: string;
-  stake: number;
-  reward: number;
-  current_streak: number;
-  days_to_payout: number;
-  net_balance: number;
-};
 export type Applications = {
   configured: boolean;
   error?: string;
   today_count: number | null;
   status_breakdown: Record<string, number>;
-};
-export type Fitness = {
-  latest: Record<string, number>;
-  series: Record<string, { date: string; value: number }[]>;
 };
 export type AppsDaily = {
   configured: boolean;
@@ -68,16 +53,12 @@ export const getToday = () =>
 export const getLogs = (start: string, end: string) =>
   apiGet<{ logs: MonthLog[] }>(`/logs?start=${start}&end=${end}`, { logs: [] });
 
-export const getBets = () => apiGet<{ bets: Bet[] }>('/bets', { bets: [] });
-
 export const getApplications = () =>
   apiGet<Applications>('/applications', {
     configured: false,
     today_count: null,
     status_breakdown: {},
   });
-
-export const getFitness = () => apiGet<Fitness>('/fitness', { latest: {}, series: {} });
 
 export const getApplicationsDaily = (days = 30) =>
   apiGet<AppsDaily>(`/applications/daily?days=${days}`, { configured: false, daily: [] });

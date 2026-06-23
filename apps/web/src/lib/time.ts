@@ -25,9 +25,3 @@ export function isoAddDays(iso: string, delta: number): string {
   d.setUTCDate(d.getUTCDate() + delta);
   return d.toISOString().slice(0, 10);
 }
-
-/** Days from today (tz-aware) until an ISO date, floored at 0. */
-export function daysUntil(isoDate: string): number {
-  const ms = new Date(`${isoDate}T00:00:00`).getTime() - new Date(`${todayMx()}T00:00:00`).getTime();
-  return Math.max(0, Math.round(ms / 86_400_000));
-}

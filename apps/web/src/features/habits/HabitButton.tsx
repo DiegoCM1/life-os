@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 
 // Side button for one habit ring: tapping it marks today done and drops one
 // green square into the spiral (toggling again removes it).
-export default function HabitButton({ goalId, label, done, monthCount }: {
+export default function HabitButton({ goalId, label, done, monthCount, streak }: {
   goalId: string;
   label: string;
   done: boolean;
   monthCount: number;
+  streak: number;
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<boolean | null>(null);
@@ -45,6 +46,11 @@ export default function HabitButton({ goalId, label, done, monthCount }: {
         }`}
       />
       <span className="flex-1">{label}</span>
+      {streak > 0 && (
+        <span className="text-xs font-semibold tabular-nums text-good" title={`${streak}-day streak`}>
+          🔥 {streak}
+        </span>
+      )}
       <span className="text-xs tabular-nums text-sub">{Math.max(0, squares)} this month</span>
     </button>
   );

@@ -5,6 +5,7 @@
 import { APPLICATIONS_DAILY_TARGET, GOALS } from '@/config/goals';
 import type { MonthLog, TodayLog } from '@/lib/api';
 import type { Range } from '@/lib/range';
+import { isoAddDays } from '@/lib/time';
 import NumberStepper from '@/components/NumberStepper';
 import RangeToggle from '@/components/RangeToggle';
 import HabitButton from './HabitButton';
@@ -33,6 +34,26 @@ export default function HabitTracker({
   for (const log of monthLogs) {
     if (log.done) monthDoneCount.set(log.goal_id, (monthDoneCount.get(log.goal_id) ?? 0) + 1);
   }
+
+  // Streak per goal: consecutive done days ending today (or yesterday, so a
+  // not-yet-logged today doesn't read as broken before the day is over).
+  const doneDatesByGoal = new Map<string, Set<string>>();
+  for (const log of rangeLogs) {
+    if (!log.done) continue;
+    if (!doneDatesByGoal.has(log.goal_id)) doneDatesByGoal.set(log.goal_id, new Set());
+    doneDatesByGoal.get(log.goal_id)!.add(log.log_date);
+  }
+  const streakFor = (goalId: string): number => {
+    const done = doneDatesByGoal.get(goalId);
+    if (!done) return 0;
+    let cursor = done.has(today) ? today : isoAddDays(today, -1);
+    let streak = 0;
+    while (done.has(cursor)) {
+      streak += 1;
+      cursor = isoAddDays(cursor, -1);
+    }
+    return streak;
+  };
 
   const appsDone = appsCount !== null && appsCount >= APPLICATIONS_DAILY_TARGET;
 
@@ -84,6 +105,7 @@ export default function HabitTracker({
               label={g.label}
               done={logByGoal.get(g.id)?.done ?? false}
               monthCount={monthDoneCount.get(g.id) ?? 0}
+              streak={streakFor(g.id)}
             />
           ))}
 
@@ -105,7 +127,6 @@ export default function HabitTracker({
           {GOALS.filter((g) => g.type === 'number').map((g) => (
             <NumberStepper
               key={g.id}
-              kind="log"
               id={g.id}
               label={g.label}
               unit={g.unit}

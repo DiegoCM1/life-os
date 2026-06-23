@@ -4,14 +4,12 @@ import {
   APPLICATION_FUNNEL,
   APPLICATION_STATUS_GROUPS,
   APPLICATIONS_DAILY_TARGET,
-  FITNESS_METRICS,
   TOPICS,
 } from '@/config/goals';
 import {
   getApplications,
   getApplicationsDaily,
   getApplicationsStats,
-  getFitness,
   getLogs,
 } from '@/lib/api';
 import { isoAddDays, todayMx } from '@/lib/time';
@@ -71,7 +69,7 @@ export default async function TopicDetailPage({ topicId, range }: {
       {topic.kind === 'applications' ? (
         <ApplicationsDetail today={today} range={range} />
       ) : (
-        <HabitDetail topicId={topic.id} metrics={topic.metrics} today={today} range={range} />
+        <HabitDetail topicId={topic.id} today={today} range={range} />
       )}
     </main>
   );
@@ -79,17 +77,13 @@ export default async function TopicDetailPage({ topicId, range }: {
 
 // ---------- habit topics ----------
 
-async function HabitDetail({ topicId, metrics, today, range }: {
+async function HabitDetail({ topicId, today, range }: {
   topicId: string;
-  metrics?: string[];
   today: string;
   range: Range;
 }) {
   const days = rangeDays(range);
-  const [logsData, fitness] = await Promise.all([
-    getLogs(isoAddDays(today, -days), today),
-    metrics?.length ? getFitness() : Promise.resolve(null),
-  ]);
+  const logsData = await getLogs(isoAddDays(today, -days), today);
   const logs = logsData.logs;
   const done = doneDates(logs, topicId);
   const valueOf = (date: string) => (done.has(date) ? 1 : 0);
@@ -131,22 +125,6 @@ async function HabitDetail({ topicId, metrics, today, range }: {
           <CountBars data={weekdayTotals(today, days, valueOf)} name="times done" color="#4f8cff" />
         </ChartCard>
       </div>
-
-      {fitness &&
-        metrics?.map((metricId) => {
-          const def = FITNESS_METRICS.find((m) => m.id === metricId);
-          const since = isoAddDays(today, -days);
-          const series = (fitness.series[metricId] ?? []).filter((p) => p.date >= since);
-          return (
-            <ChartCard key={metricId} title={`${def?.label ?? metricId} over time`}>
-              {series.length === 0 ? (
-                <p className="text-sm text-sub">No measurements in this range yet.</p>
-              ) : (
-                <TrendLine data={series} name={def?.label ?? metricId} unit={def?.unit} dots />
-              )}
-            </ChartCard>
-          );
-        })}
     </>
   );
 }

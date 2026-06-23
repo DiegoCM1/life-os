@@ -1,7 +1,7 @@
 // ============================================================================
-// THE ONE FILE TO EDIT. All goal/bet/book/mantra content lives here (v1 brief:
-// goals are hardcoded, not user-editable). IDs are stable keys in daily_log /
-// fitness_metric — renaming a label is free, changing an id orphans its history.
+// THE ONE FILE TO EDIT. All goal content lives here (v1 brief: goals are
+// hardcoded, not user-editable). IDs are stable keys in daily_log — renaming
+// a label is free, changing an id orphans its history.
 // ============================================================================
 
 export const TIMEZONE = 'America/Mexico_City';
@@ -93,30 +93,18 @@ export const GOALS: GoalDef[] = [
   { id: 'deep_work_hours', label: 'Deep work', type: 'number', unit: 'h', target: 4 },
 ];
 
-// Fitness metrics logged with steppers; latest values shown next to the dated goal.
-export const FITNESS_METRICS = [
-  { id: 'handstand_hold_seconds', label: 'Handstand hold', unit: 's', step: 5, goal: 60 },
-  { id: 'strict_pullups', label: 'Strict pull-ups', unit: 'reps', step: 1, goal: 15 },
-];
-
 // Clickable topic cards at the bottom of the dashboard; each opens /topic/<id>
-// with in-depth charts. `metrics` adds fitness-metric trend charts to that page.
+// with in-depth charts.
 export type TopicDef = {
   id: string;
   label: string;
   kind: 'habit' | 'applications';
-  metrics?: string[];
 };
 
 export const TOPICS: TopicDef[] = [
   { id: 'applications', label: 'Applications', kind: 'applications' },
   { id: 'posted', label: 'Posted', kind: 'habit' },
-  {
-    id: 'calisthenics',
-    label: 'Calisthenics',
-    kind: 'habit',
-    metrics: ['handstand_hold_seconds', 'strict_pullups'],
-  },
+  { id: 'calisthenics', label: 'Calisthenics', kind: 'habit' },
   { id: 'interview_prep', label: 'Interview Prep + Studying', kind: 'habit' },
 ];
 
@@ -149,16 +137,3 @@ export const APPLICATION_FUNNEL = {
   offers: ['Offer'],
 };
 
-// Dated goal countdown.
-export const DATED_GOAL = {
-  label: 'End-of-July fitness target',
-  date: '2026-07-31',
-};
-
-// The un-scoreable corner. Deliberately not graded.
-export const CURRENT_BOOK = 'Sapiens';
-export const MANTRAS = [
-  'Focus on the inputs. Ignore the scoreboard. You only care about what you can control',
-  'Show up, especially when it is small.',
-  'You only log what you did, never what they decided.',
-];

@@ -3,16 +3,15 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-// One stepper for both daily number goals (/api/log) and fitness metrics
-// (/api/fitness) — tap-only logging, no free text (brief §5).
-export default function NumberStepper({ id, label, value, unit, step = 1, target, kind }: {
+// One stepper for daily number goals (/api/log) — tap-only logging, no free
+// text (brief §5).
+export default function NumberStepper({ id, label, value, unit, step = 1, target }: {
   id: string;
   label: string;
   value: number;
   unit?: string;
   step?: number;
   target?: number;
-  kind: 'log' | 'fitness';
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<number | null>(null);
@@ -22,12 +21,10 @@ export default function NumberStepper({ id, label, value, unit, step = 1, target
   async function change(delta: number) {
     const next = Math.max(0, Math.round((current + delta) * 100) / 100);
     setOptimistic(next);
-    const body =
-      kind === 'log' ? { goal_id: id, value: next } : { metric: id, value: next };
-    const res = await fetch(`/api/${kind}`, {
+    const res = await fetch('/api/log', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ goal_id: id, value: next }),
     });
     if (!res.ok) setOptimistic(null);
     startTransition(() => router.refresh());
