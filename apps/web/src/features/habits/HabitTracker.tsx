@@ -2,10 +2,10 @@
 // Tapping a button writes today's check-in and fills one green cell.
 // The spiral switches week/month/year via ?spiral= (server-rendered links).
 
-import { APPLICATIONS_DAILY_TARGET, GOALS } from '@/config/goals';
+import { APPLICATIONS_DAILY_TARGET, GOAL_DEADLINE_HOUR, GOALS } from '@/config/goals';
 import type { MonthLog, TodayLog } from '@/lib/api';
 import type { Range } from '@/lib/range';
-import { isoAddDays } from '@/lib/time';
+import { isLate, isoAddDays } from '@/lib/time';
 import NumberStepper from '@/components/NumberStepper';
 import RangeToggle from '@/components/RangeToggle';
 import HabitButton from './HabitButton';
@@ -65,13 +65,18 @@ export default function HabitTracker({
 
   const rings: SpiralRing[] = [];
 
-  // toggles: 1 on done days
+  // toggles: 1 on done days; track which of those were completed late
   for (const g of toggleGoals) {
+    const hour = GOAL_DEADLINE_HOUR[g.id];
     const fraction = new Map<string, number>();
+    const lateDates = new Set<string>();
     for (const log of rangeLogs) {
-      if (log.goal_id === g.id && log.done) fraction.set(log.log_date, 1);
+      if (log.goal_id === g.id && log.done) {
+        fraction.set(log.log_date, 1);
+        if (isLate(log.log_date, log.done_at, hour)) lateDates.add(log.log_date);
+      }
     }
-    rings.push({ id: g.id, label: g.label, fraction });
+    rings.push({ id: g.id, label: g.label, fraction, lateDates });
   }
 
   // applications (Notion): fraction of the daily target met
@@ -106,6 +111,7 @@ export default function HabitTracker({
               goalId={g.id}
               label={g.label}
               done={logByGoal.get(g.id)?.done ?? false}
+              late={isLate(selectedDay, logByGoal.get(g.id)?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
               monthCount={monthDoneCount.get(g.id) ?? 0}
               streak={streakFor(g.id)}
               logDate={selectedDay}

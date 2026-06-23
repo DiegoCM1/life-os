@@ -16,6 +16,8 @@ export type SpiralRing = {
   label: string;
   /** date → 0..1 progress (missing = 0) */
   fraction: Map<string, number>;
+  /** dates where the (full) completion was logged after the deadline */
+  lateDates?: Set<string>;
 };
 
 const SIZE = 560;
@@ -27,6 +29,8 @@ const RING_GAP = 3;
 
 // empty → dim → mid → full progress
 const GREEN_SCALE = ['#1d4732', '#2a8a55', '#3ddc84'];
+// late completions render amber instead of green (same --warn hue)
+const AMBER_SCALE = ['#5a4410', '#c78a14', '#ffb020'];
 
 function polar(r: number, deg: number): [number, number] {
   const rad = ((deg - 90) * Math.PI) / 180; // 0° = 12 o'clock, clockwise
@@ -117,12 +121,13 @@ function buildSegments(range: Range, today: string, selectedDay: string): Segmen
   });
 }
 
-function cellFill(fill: number, isPast: boolean, isCurrent: boolean): {
+function cellFill(fill: number, isPast: boolean, isCurrent: boolean, late: boolean): {
   className?: string;
   fill?: string;
 } {
   if (fill > 0) {
-    return { fill: GREEN_SCALE[fill <= 0.4 ? 0 : fill < 1 ? 1 : 2] };
+    const scale = late ? AMBER_SCALE : GREEN_SCALE;
+    return { fill: scale[fill <= 0.4 ? 0 : fill < 1 ? 1 : 2] };
   }
   if (isCurrent) return { className: 'fill-well stroke-accent/60' };
   return { className: isPast ? 'fill-edge/50' : 'fill-well stroke-edge' };
@@ -184,7 +189,8 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
           const a0 = i * anglePer + angleGap / 2;
           const a1 = (i + 1) * anglePer - angleGap / 2;
           const isPast = currentIndex >= 0 && i < currentIndex;
-          const style = cellFill(seg.fillFor(ring.fraction), isPast, seg.isCurrent);
+          const late = ring.lateDates?.has(seg.key) ?? false;
+          const style = cellFill(seg.fillFor(ring.fraction), isPast, seg.isCurrent, late);
           const isSel = isPastView && seg.isSelected;
           return (
             <path

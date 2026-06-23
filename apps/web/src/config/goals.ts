@@ -16,6 +16,16 @@ export const DEADLINES = {
 // How many applications must be in Notion (dated today) before the deadline.
 export const APPLICATIONS_DAILY_TARGET = 6;
 
+// Per-goal deadline hour (TIMEZONE, 24h clock). A completion logged after this
+// moment on its day — or back-filled on a later day — renders yellow as "Late".
+// Goals absent here have no deadline and never go late. (applications has a 9:00
+// deadline conceptually, but Notion only gives date-level counts with no
+// per-application time, so lateness can't be detected for it.)
+export const GOAL_DEADLINE_HOUR: Record<string, number> = {
+  posted: 19,
+  interview_prep: 19,
+};
+
 // Shown on the top card once BOTH deadlines are cleared. Rotates.
 export const VICTORY_LINES = [
   // joe-rogan energy

@@ -16,6 +16,7 @@ export default {
         warn: '#ffb020',
         'good-dim': '#10231a',
         'bad-dim': '#2a1216',
+        'warn-dim': '#2a2107',
         well: '#0e1320',
       },
       keyframes: {

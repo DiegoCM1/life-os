@@ -4,7 +4,12 @@
 const API_URL = process.env.API_URL ?? 'http://localhost:8000';
 const API_SECRET = process.env.API_SECRET ?? '';
 
-export type TodayLog = { goal_id: string; done: boolean | null; value: number | null };
+export type TodayLog = {
+  goal_id: string;
+  done: boolean | null;
+  value: number | null;
+  done_at: string | null; // ISO instant when done last flipped true; null otherwise
+};
 export type MonthLog = TodayLog & { log_date: string };
 export type Applications = {
   configured: boolean;

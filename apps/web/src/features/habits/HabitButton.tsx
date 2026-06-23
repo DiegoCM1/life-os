@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 
 // Side button for one habit ring: tapping it marks today done and drops one
 // green square into the spiral (toggling again removes it).
-export default function HabitButton({ goalId, label, done, monthCount, streak, logDate }: {
+export default function HabitButton({ goalId, label, done, late, monthCount, streak, logDate }: {
   goalId: string;
   label: string;
   done: boolean;
+  late: boolean; // done, but after the deadline → render yellow
   monthCount: number;
   streak: number;
   logDate: string;
@@ -34,19 +35,28 @@ export default function HabitButton({ goalId, label, done, monthCount, streak, l
   const squares =
     monthCount + (optimistic === null || optimistic === done ? 0 : optimistic ? 1 : -1);
 
+  // `late` is server-derived (needs done_at), so a fresh tap shows green first
+  // and settles to yellow on the next refresh once the server reports it late.
+  const isLate = isDone && late;
+
   return (
     <button
       onClick={toggle}
       className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-        isDone ? 'border-good bg-good-dim' : 'border-edge bg-well'
+        isLate ? 'border-warn bg-warn-dim' : isDone ? 'border-good bg-good-dim' : 'border-edge bg-well'
       }`}
     >
       <span
         className={`inline-block h-4 w-4 flex-shrink-0 rounded-[3px] border-2 ${
-          isDone ? 'border-good bg-good' : 'border-sub'
+          isLate ? 'border-warn bg-warn' : isDone ? 'border-good bg-good' : 'border-sub'
         }`}
       />
       <span className="flex-1">{label}</span>
+      {isLate && (
+        <span className="rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
+          Late
+        </span>
+      )}
       {streak > 0 && (
         <span className="text-xs font-semibold tabular-nums text-good" title={`${streak}-day streak`}>
           🔥 {streak}

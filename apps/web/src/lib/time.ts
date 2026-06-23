@@ -36,6 +36,30 @@ export function parseDay(value: string | undefined, today: string): string {
   return today;
 }
 
+/**
+ * True when a completion was logged after its deadline. `doneAtIso` is the
+ * server instant done flipped true; `hour` is the deadline hour in TIMEZONE on
+ * `logDate`. Compares full wall-clock datetimes so same-day-after-deadline and
+ * later-day back-fills both count as late.
+ */
+export function isLate(logDate: string, doneAtIso: string | null, hour: number | undefined): boolean {
+  if (!doneAtIso || hour === undefined) return false;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(doneAtIso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
+  const hh = String(Number(get('hour')) % 24).padStart(2, '0');
+  const stamp = `${get('year')}-${get('month')}-${get('day')} ${hh}:${get('minute')}:${get('second')}`;
+  return stamp > `${logDate} ${String(hour).padStart(2, '0')}:00:00`;
+}
+
 /** Human label for an ISO date, e.g. "Wed, Jun 18" (UTC base, tz-stable). */
 export function formatDay(iso: string): string {
   return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
