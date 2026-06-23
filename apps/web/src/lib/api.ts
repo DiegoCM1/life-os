@@ -9,6 +9,7 @@ export type TodayLog = {
   done: boolean | null;
   value: number | null;
   done_at: string | null; // ISO instant when done last flipped true; null otherwise
+  note: string | null; // per-activity "why not done" reason
 };
 export type MonthLog = TodayLog & { log_date: string };
 export type Applications = {

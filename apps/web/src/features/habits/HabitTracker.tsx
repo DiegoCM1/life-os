@@ -5,9 +5,10 @@
 import { APPLICATIONS_DAILY_TARGET, GOAL_DEADLINE_HOUR, GOALS } from '@/config/goals';
 import type { MonthLog, TodayLog } from '@/lib/api';
 import type { Range } from '@/lib/range';
-import { isLate, isoAddDays } from '@/lib/time';
+import { isLate, isoAddDays, nowPartsMx } from '@/lib/time';
 import NumberStepper from '@/components/NumberStepper';
 import RangeToggle from '@/components/RangeToggle';
+import ActivityNote from './ActivityNote';
 import HabitButton from './HabitButton';
 import HabitSpiral, { type SpiralRing } from './HabitSpiral';
 
@@ -59,6 +60,22 @@ export default function HabitTracker({
 
   const appsDone = appsCount !== null && appsCount >= APPLICATIONS_DAILY_TARGET;
 
+  // A "why not done" note is required once an unfulfilled activity's window has
+  // closed: any past day, or today once the deadline hour has passed (goals with
+  // no deadline only close at end of day, so they never nag on today). The field
+  // also shows — calmly — whenever a note already exists, so you can read/edit it.
+  const currentHour = nowPartsMx().hour;
+  const noteState = (goalId: string, fulfilled: boolean) => {
+    const log = logByGoal.get(goalId);
+    const deadlineHour = GOAL_DEADLINE_HOUR[goalId];
+    const windowClosed =
+      selectedDay < today ||
+      (selectedDay === today && deadlineHour !== undefined && currentHour >= deadlineHour);
+    const required = windowClosed && !fulfilled;
+    const note = log?.note ?? '';
+    return { required, note, show: required || note.trim() !== '' };
+  };
+
   // ---- build one spiral ring per tracked thing (5 total) ----
   const toggleGoals = GOALS.filter((g) => g.type === 'toggle');
   const deepWork = GOALS.find((g) => g.type === 'number');
@@ -105,18 +122,31 @@ export default function HabitTracker({
       </div>
       <div className="flex flex-col gap-6 md:flex-row md:items-center">
         <div className="flex w-full flex-col gap-2.5 md:w-72">
-          {GOALS.filter((g) => g.type === 'toggle').map((g) => (
-            <HabitButton
-              key={g.id}
-              goalId={g.id}
-              label={g.label}
-              done={logByGoal.get(g.id)?.done ?? false}
-              late={isLate(selectedDay, logByGoal.get(g.id)?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
-              monthCount={monthDoneCount.get(g.id) ?? 0}
-              streak={streakFor(g.id)}
-              logDate={selectedDay}
-            />
-          ))}
+          {toggleGoals.map((g) => {
+            const log = logByGoal.get(g.id);
+            const ns = noteState(g.id, log?.done === true);
+            return (
+              <div key={g.id} className="flex flex-col gap-2">
+                <HabitButton
+                  goalId={g.id}
+                  label={g.label}
+                  done={log?.done ?? false}
+                  late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
+                  monthCount={monthDoneCount.get(g.id) ?? 0}
+                  streak={streakFor(g.id)}
+                  logDate={selectedDay}
+                />
+                {ns.show && (
+                  <ActivityNote
+                    goalId={g.id}
+                    logDate={selectedDay}
+                    initialNote={ns.note}
+                    required={ns.required}
+                  />
+                )}
+              </div>
+            );
+          })}
 
           <div className="my-1 border-t border-edge" />
 
@@ -133,17 +163,31 @@ export default function HabitTracker({
             <span className="text-[10px] uppercase tracking-wide text-sub">Notion</span>
           </div>
 
-          {GOALS.filter((g) => g.type === 'number').map((g) => (
-            <NumberStepper
-              key={g.id}
-              id={g.id}
-              label={g.label}
-              unit={g.unit}
-              target={g.target}
-              value={logByGoal.get(g.id)?.value ?? 0}
-              logDate={selectedDay}
-            />
-          ))}
+          {GOALS.filter((g) => g.type === 'number').map((g) => {
+            const log = logByGoal.get(g.id);
+            const value = log?.value ?? 0;
+            const ns = noteState(g.id, value >= (g.target ?? Infinity));
+            return (
+              <div key={g.id} className="flex flex-col gap-2">
+                <NumberStepper
+                  id={g.id}
+                  label={g.label}
+                  unit={g.unit}
+                  target={g.target}
+                  value={value}
+                  logDate={selectedDay}
+                />
+                {ns.show && (
+                  <ActivityNote
+                    goalId={g.id}
+                    logDate={selectedDay}
+                    initialNote={ns.note}
+                    required={ns.required}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <div className="flex flex-1 justify-center">

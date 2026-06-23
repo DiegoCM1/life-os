@@ -21,20 +21,22 @@ class LogUpsert(BaseModel):
     log_date: date | None = None  # defaults to today in America/Mexico_City
     done: bool | None = None
     value: float | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 @router.put("/log")
 async def upsert_log(body: LogUpsert) -> dict[str, Any]:
-    if body.done is None and body.value is None:
-        raise HTTPException(status_code=422, detail="Provide done and/or value")
+    if body.done is None and body.value is None and body.note is None:
+        raise HTTPException(status_code=422, detail="Provide done, value, and/or note")
     log_date = body.log_date or today_mx()
     # done_at stamps the moment done flips to true (and clears when it flips
     # back). The frontend compares it to each goal's deadline to flag "late".
-    # A value-only update (done is null) leaves done_at untouched.
+    # note is the per-activity "why not done" reason. A field left null in the
+    # request is left untouched (so a note-only write keeps done/value, etc.).
     row = await pool().fetchrow(
         """
-        insert into daily_log (log_date, goal_id, done, value, done_at)
-        values ($1, $2, $3, $4, case when $3 is true then now() end)
+        insert into daily_log (log_date, goal_id, done, value, done_at, note)
+        values ($1, $2, $3, $4, case when $3 is true then now() end, $5)
         on conflict (log_date, goal_id) do update set
           done = coalesce(excluded.done, daily_log.done),
           value = coalesce(excluded.value, daily_log.value),
@@ -43,10 +45,11 @@ async def upsert_log(body: LogUpsert) -> dict[str, Any]:
             when excluded.done is false then null
             else daily_log.done_at
           end,
+          note = coalesce(excluded.note, daily_log.note),
           updated_at = now()
-        returning log_date, goal_id, done, value, done_at
+        returning log_date, goal_id, done, value, done_at, note
         """,
-        log_date, body.goal_id, body.done, body.value,
+        log_date, body.goal_id, body.done, body.value, body.note,
     )
     return dict(row)
 
@@ -55,7 +58,7 @@ async def upsert_log(body: LogUpsert) -> dict[str, Any]:
 async def get_today() -> dict[str, Any]:
     today = today_mx()
     rows = await pool().fetch(
-        "select goal_id, done, value, done_at from daily_log where log_date = $1", today
+        "select goal_id, done, value, done_at, note from daily_log where log_date = $1", today
     )
     return {"date": today.isoformat(), "logs": [dict(r) for r in rows]}
 
@@ -68,7 +71,7 @@ async def get_logs(
         raise HTTPException(status_code=422, detail="Invalid range")
     rows = await pool().fetch(
         """
-        select log_date, goal_id, done, value, done_at from daily_log
+        select log_date, goal_id, done, value, done_at, note from daily_log
         where log_date between $1 and $2 order by log_date
         """,
         start, end,
@@ -77,7 +80,8 @@ async def get_logs(
         "logs": [
             {"log_date": r["log_date"].isoformat(), "goal_id": r["goal_id"],
              "done": r["done"], "value": float(r["value"]) if r["value"] is not None else None,
-             "done_at": r["done_at"].isoformat() if r["done_at"] is not None else None}
+             "done_at": r["done_at"].isoformat() if r["done_at"] is not None else None,
+             "note": r["note"]}
             for r in rows
         ]
     }
