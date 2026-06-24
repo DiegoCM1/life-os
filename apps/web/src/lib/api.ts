@@ -55,6 +55,28 @@ export function apiForward(path: string, method: string, body: unknown): Promise
   });
 }
 
+// Like apiForward, but always resolves to a JSON-safe { status, body } — even when
+// the backend errors with a non-JSON body (e.g. a 500 "Internal Server Error") or
+// is unreachable. Keeps the Next route from throwing a JSON parse error and lets
+// the browser see a real status to act on.
+export async function apiForwardJson(
+  path: string,
+  method: string,
+  body: unknown,
+): Promise<{ status: number; body: unknown }> {
+  try {
+    const res = await apiForward(path, method, body);
+    const text = await res.text();
+    try {
+      return { status: res.status, body: text ? JSON.parse(text) : null };
+    } catch {
+      return { status: res.status, body: { error: text || res.statusText } };
+    }
+  } catch {
+    return { status: 502, body: { error: 'backend unreachable' } };
+  }
+}
+
 export const getLogs = (start: string, end: string) =>
   apiGet<{ logs: MonthLog[] }>(`/logs?start=${start}&end=${end}`, { logs: [] });
 

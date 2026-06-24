@@ -47,6 +47,7 @@ export default function ActivityItem({
   const [treguaText, setTreguaText] = useState('');
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -67,30 +68,41 @@ export default function ActivityItem({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [menuOpen]);
 
-  async function put(body: Record<string, unknown>): Promise<Response> {
-    const res = await fetch('/api/log', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ log_date: logDate, goal_id: goalId, ...body }),
-    });
+  // Returns true on a confirmed save. On any failure (bad status, parse, or a
+  // dead backend) it sets `error` so the UI can stop pretending it worked.
+  async function put(body: Record<string, unknown>): Promise<boolean> {
+    setError(null);
+    let ok = false;
+    try {
+      const res = await fetch('/api/log', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ log_date: logDate, goal_id: goalId, ...body }),
+      });
+      ok = res.ok;
+    } catch {
+      ok = false;
+    }
+    if (!ok) setError('Couldn’t save — try again');
     startTransition(() => router.refresh());
-    return res;
+    return ok;
   }
 
   async function toggle() {
     if (locked) return;
     const next = !isDone;
     setOptimistic(next);
-    const res = await put({ done: next });
-    if (!res.ok) setOptimistic(null);
+    const ok = await put({ done: next });
+    if (!ok) setOptimistic(null);
   }
 
   async function saveNote() {
     if (noteText !== initialNote) {
       setBusy(true);
-      const res = await put({ note: noteText });
+      const ok = await put({ note: noteText });
       setBusy(false);
-      setSaved(res.ok);
+      setSaved(ok);
+      if (!ok) return; // keep the editor open so the text isn't lost
     }
     // collapse to a preview after editing, unless a required note is still empty
     if (!(noteRequired && noteText.trim() === '')) setPanel('none');
@@ -101,9 +113,10 @@ export default function ActivityItem({
   async function okNote() {
     if (noteText !== initialNote) {
       setBusy(true);
-      const res = await put({ note: noteText });
+      const ok = await put({ note: noteText });
       setBusy(false);
-      setSaved(res.ok);
+      setSaved(ok);
+      if (!ok) return; // failed — keep editing so nothing is lost
     }
     setPanel('none');
   }
@@ -111,15 +124,16 @@ export default function ActivityItem({
   function cancelNote() {
     setNoteText(initialNote); // drop unsaved edits
     setSaved(false);
+    setError(null);
     setPanel('none');
   }
 
   async function declareTregua() {
     if (treguaText.trim() === '' || busy) return;
     setBusy(true);
-    await put({ tregua: true, note: treguaText.trim() });
+    const ok = await put({ tregua: true, note: treguaText.trim() });
     setBusy(false);
-    setPanel('none');
+    if (ok) setPanel('none'); // on failure keep the form + reason visible
   }
 
   async function undoTregua() {
@@ -368,6 +382,8 @@ export default function ActivityItem({
           />
         </div>
       ) : null}
+
+      {error && <p className="px-1 text-[10px] font-semibold text-bad">{error}</p>}
     </div>
   );
 }

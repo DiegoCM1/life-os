@@ -20,6 +20,7 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
   const [treguaText, setTreguaText] = useState('');
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -32,23 +33,34 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
     return () => document.removeEventListener('mousedown', onDoc);
   }, [menuOpen]);
 
-  async function put(body: Record<string, unknown>): Promise<Response> {
-    const res = await fetch('/api/day-meta', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ log_date: logDate, ...body }),
-    });
+  // Returns true on a confirmed save; sets `error` on any failure so the UI
+  // doesn't silently pretend it worked.
+  async function put(body: Record<string, unknown>): Promise<boolean> {
+    setError(null);
+    let ok = false;
+    try {
+      const res = await fetch('/api/day-meta', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ log_date: logDate, ...body }),
+      });
+      ok = res.ok;
+    } catch {
+      ok = false;
+    }
+    if (!ok) setError('Couldn’t save — try again');
     startTransition(() => router.refresh());
-    return res;
+    return ok;
   }
 
   // Inline editor: explicit Okay / cancel (and Enter) instead of blur-to-save.
   async function okNote() {
     if (noteText !== initialNote) {
       setBusy(true);
-      const res = await put({ note: noteText });
+      const ok = await put({ note: noteText });
       setBusy(false);
-      setSaved(res.ok);
+      setSaved(ok);
+      if (!ok) return; // keep editing so the text isn't lost
     }
     setPanel('none');
   }
@@ -56,15 +68,16 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
   function cancelNote() {
     setNoteText(initialNote); // drop unsaved edits
     setSaved(false);
+    setError(null);
     setPanel('none');
   }
 
   async function declareTregua() {
     if (treguaText.trim() === '' || busy) return;
     setBusy(true);
-    await put({ tregua: true, note: treguaText.trim() });
+    const ok = await put({ tregua: true, note: treguaText.trim() });
     setBusy(false);
-    setPanel('none');
+    if (ok) setPanel('none'); // on failure keep the form + reason visible
   }
 
   async function undoTregua() {
@@ -235,6 +248,8 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
           )}
         </div>
       ) : null}
+
+      {error && <p className="mt-1 text-[10px] font-semibold text-bad">{error}</p>}
     </section>
   );
 }
