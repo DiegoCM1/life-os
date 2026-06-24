@@ -12,6 +12,7 @@
 // shows the cell's ring/date/status and any saved note.
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Range } from '@/lib/range';
 import { isoAddDays, mondayOfWeekMx } from '@/lib/time';
 
@@ -167,6 +168,16 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<Tip | null>(null);
+  const router = useRouter();
+
+  // Click a cell → view/edit that day, mirroring DayNav's ?day=/?spiral= URL.
+  const dayHref = (day: string) => {
+    const params = new URLSearchParams();
+    if (day !== today) params.set('day', day);
+    if (range !== 'month') params.set('spiral', range);
+    const qs = params.toString();
+    return qs ? `/?${qs}` : '/';
+  };
 
   const segments = buildSegments(range, today, selectedDay);
   const n = segments.length;
@@ -248,16 +259,21 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
               note,
             });
           };
+          // Cells up to today are clickable; future days can't be viewed/edited.
+          const navigable = seg.key <= today;
           return (
             <path
               key={`${ring.id}-${seg.key}`}
               d={cellPath(r0, r1, a0, a1)}
-              className={`${style.className ?? ''} ${isSel ? 'stroke-[#ec4899]' : ''}`}
+              className={`${style.className ?? ''} ${isSel ? 'stroke-[#ec4899]' : ''} ${
+                navigable ? 'cursor-pointer' : ''
+              }`}
               fill={style.fill}
               strokeWidth={isSel ? 2 : 1}
               onMouseEnter={showTip}
               onMouseMove={showTip}
               onMouseLeave={() => setTip(null)}
+              onClick={navigable ? () => router.push(dayHref(seg.key)) : undefined}
             />
           );
         });

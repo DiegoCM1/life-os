@@ -91,6 +91,24 @@ export default function ActivityItem({
     if (!(noteRequired && noteText.trim() === '')) setPanel('none');
   }
 
+  // Inline editor uses explicit Okay/cancel instead of blur-to-save, so the card
+  // only reverts when you say so.
+  async function okNote() {
+    if (noteText !== initialNote) {
+      setBusy(true);
+      const res = await put({ note: noteText });
+      setBusy(false);
+      setSaved(res.ok);
+    }
+    setPanel('none');
+  }
+
+  function cancelNote() {
+    setNoteText(initialNote); // drop unsaved edits
+    setSaved(false);
+    setPanel('none');
+  }
+
   async function declareTregua() {
     if (treguaText.trim() === '' || busy) return;
     setBusy(true);
@@ -111,17 +129,63 @@ export default function ActivityItem({
   // A note exists once it's been saved (comes back as initialNote on refresh).
   const hasNote = initialNote.trim() !== '';
   const editing = panel === 'note';
-  // Nag with the loud editor only while a required note is still empty.
+  // Editing takes over the card itself (one card, not two): the toggle row is
+  // swapped for the editor until you hit Okay/cancel, then it reverts.
+  const showInlineEditor = !isTregua && editing;
+  // A still-empty required note nags as its own loud card beneath, so the toggle
+  // stays usable. Once a note exists it lives only on the card's hover tooltip —
+  // no extra card is ever shown.
   const mustNag = noteRequired && !hasNote;
   const noteLoud = noteRequired && noteText.trim() === '';
-  // Full editor while actively editing or nagging; otherwise collapse a saved
-  // note into a compact, read-only preview chip (tap or use ⋯ menu to edit).
-  const showEditor = !isTregua && (editing || mustNag);
-  const showPreview = !isTregua && !showEditor && hasNote;
+  const showNagCard = !isTregua && !editing && mustNag;
 
   return (
     <div className={`relative flex flex-col gap-2 ${menuOpen ? 'z-20' : ''}`}>
-      <div className="relative">
+      {showInlineEditor ? (
+        <div className="min-h-[56px] rounded-xl border border-edge bg-well px-3 py-2">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="truncate text-[10px] font-bold uppercase tracking-wide text-sub">
+              {noteRequired ? 'Why not done?' : 'Note'} · {label}
+            </span>
+            {busy ? (
+              <span className="text-[10px] text-sub">saving…</span>
+            ) : saved ? (
+              <span className="text-[10px] text-good">saved ✓</span>
+            ) : null}
+          </div>
+          <textarea
+            autoFocus
+            value={noteText}
+            onChange={(e) => {
+              setNoteText(e.target.value);
+              setSaved(false);
+            }}
+            onKeyDown={(e) => {
+              // Enter saves & closes; Shift+Enter inserts a newline.
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                okNote();
+              }
+            }}
+            rows={2}
+            placeholder="A short reason, so future-you remembers…"
+            className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
+          />
+          <div className="mt-1 flex justify-end gap-2">
+            <button onClick={cancelNote} className="text-[10px] text-sub hover:text-ink">
+              cancel
+            </button>
+            <button
+              onClick={okNote}
+              disabled={busy}
+              className="rounded bg-good/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-good disabled:opacity-40"
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      ) : (
+      <div className="group relative">
         <button
           onClick={toggle}
           disabled={locked}
@@ -164,6 +228,7 @@ export default function ActivityItem({
               Late
             </span>
           )}
+          {hasNote && <span className="text-[11px] leading-none" aria-label="has a note">📝</span>}
           {streak > 0 && (
             <span className="text-xs font-semibold tabular-nums text-good" title={`${streak}-day streak`}>
               🔥 {streak}
@@ -171,6 +236,14 @@ export default function ActivityItem({
           )}
           <span className="text-xs tabular-nums text-sub">{Math.max(0, displayCount)} {countLabel}</span>
         </button>
+
+        {/* note revealed on hover (also visible on the spiral cell) */}
+        {hasNote && !menuOpen && (
+          <div className="pointer-events-none absolute bottom-full left-3 z-30 mb-1 hidden w-max max-w-[260px] rounded-lg border border-edge bg-card px-3 py-2 shadow-xl group-hover:block">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-sub">Note</div>
+            <div className="mt-1 whitespace-pre-wrap text-xs text-ink/90">{initialNote}</div>
+          </div>
+        )}
 
         {/* in-card overflow menu */}
         <div ref={menuRef} className="absolute right-1 top-1/2 -translate-y-1/2">
@@ -208,8 +281,9 @@ export default function ActivityItem({
           )}
         </div>
       </div>
+      )}
 
-      {/* panel: active Tregua, Tregua reason, or note */}
+      {/* below the card: active Tregua, Tregua reason, required-note nag, or preview chip */}
       {isTregua ? (
         <div className="rounded-xl border border-tregua bg-tregua-dim px-3 py-2">
           <div className="flex items-center justify-between gap-2">
@@ -246,7 +320,7 @@ export default function ActivityItem({
             </button>
           </div>
         </div>
-      ) : showEditor ? (
+      ) : showNagCard ? (
         <div
           className={`rounded-xl border px-3 py-2 ${
             noteLoud ? 'animate-pulsebad border-bad bg-bad-dim' : 'border-edge bg-well'
@@ -277,18 +351,6 @@ export default function ActivityItem({
             className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
           />
         </div>
-      ) : showPreview ? (
-        <button
-          onClick={() => {
-            setSaved(false);
-            setPanel('note');
-          }}
-          className="flex w-full items-start gap-2 rounded-xl border border-edge bg-well px-3 py-2 text-left transition-colors hover:border-sub"
-        >
-          <span className="mt-px text-[10px] leading-none">📝</span>
-          <span className="flex-1 truncate text-sm text-sub">{initialNote}</span>
-          <span className="text-[10px] text-sub/60">edit</span>
-        </button>
       ) : null}
     </div>
   );
