@@ -1,3 +1,5 @@
+'use client';
+
 // Spiral habit tracker (paper habit-wheel style): one concentric ring per
 // tracked thing (5 rings: toggles, deep work, applications), segments
 // radiating clockwise from 12 o'clock. Range-aware:
@@ -6,8 +8,10 @@
 //   year  → 52 week cells
 // Cell fill is a 0..1 fraction: binary habits are full/empty; target-based
 // rings (deep work hours, applications) shade with partial progress.
-// Server-rendered inline SVG — no charting lib, zero client JS.
+// Inline SVG — no charting lib. Client-side only for the hover tooltip, which
+// shows the cell's ring/date/status and any saved note.
 
+import { useRef, useState } from 'react';
 import type { Range } from '@/lib/range';
 import { isoAddDays, mondayOfWeekMx } from '@/lib/time';
 
@@ -20,6 +24,8 @@ export type SpiralRing = {
   lateDates?: Set<string>;
   /** dates excused by a Tregua (activity or whole-day) — rendered purple */
   treguaDates?: Set<string>;
+  /** date → saved note, shown in the hover tooltip when present */
+  notes?: Map<string, string>;
 };
 
 const SIZE = 560;
@@ -142,12 +148,26 @@ function cellFill(fill: number, isPast: boolean, isCurrent: boolean, late: boole
   return { className: isPast ? 'fill-edge/50' : 'fill-well stroke-edge' };
 }
 
+/** Friendly cell date for the tooltip. Year cells span a week, so label the start. */
+function formatCellDate(key: string, range: Range): string {
+  const d = new Date(`${key}T12:00:00Z`);
+  if (range === 'year') {
+    return `Week of ${d.toLocaleDateString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`;
+  }
+  return d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+type Tip = { x: number; y: number; label: string; date: string; status: string; note?: string };
+
 export default function HabitSpiral({ rings, today, range, selectedDay }: {
   rings: SpiralRing[];
   today: string;
   range: Range;
   selectedDay: string;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<Tip | null>(null);
+
   const segments = buildSegments(range, today, selectedDay);
   const n = segments.length;
   const anglePer = 360 / n;
@@ -169,9 +189,10 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
         : { big: String(Number(today.slice(8, 10))), small: `of ${n}` };
 
   return (
+    <div ref={containerRef} className="relative w-full max-w-[560px]">
     <svg
       viewBox={`0 0 ${SIZE} ${SIZE}`}
-      className="h-auto w-full max-w-[560px]"
+      className="h-auto w-full"
       role="img"
       aria-label={`Habit spiral (${range})`}
     >
@@ -200,8 +221,33 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
           const isPast = currentIndex >= 0 && i < currentIndex;
           const late = ring.lateDates?.has(seg.key) ?? false;
           const tregua = ring.treguaDates?.has(seg.key) ?? false;
-          const style = cellFill(seg.fillFor(ring.fraction), isPast, seg.isCurrent, late, tregua);
+          const fillVal = seg.fillFor(ring.fraction);
+          const style = cellFill(fillVal, isPast, seg.isCurrent, late, tregua);
           const isSel = isPastView && seg.isSelected;
+          const note = ring.notes?.get(seg.key);
+          const status = tregua
+            ? 'Tregua'
+            : fillVal >= 1
+              ? late
+                ? 'Done · late'
+                : 'Done'
+              : fillVal > 0
+                ? 'Partial'
+                : isPast || seg.isCurrent
+                  ? 'Not done'
+                  : '';
+          const showTip = (e: React.MouseEvent) => {
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            setTip({
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+              label: ring.label,
+              date: formatCellDate(seg.key, range),
+              status,
+              note,
+            });
+          };
           return (
             <path
               key={`${ring.id}-${seg.key}`}
@@ -209,9 +255,10 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
               className={`${style.className ?? ''} ${isSel ? 'stroke-[#ec4899]' : ''}`}
               fill={style.fill}
               strokeWidth={isSel ? 2 : 1}
-            >
-              <title>{`${ring.label} · ${seg.key}`}</title>
-            </path>
+              onMouseEnter={showTip}
+              onMouseMove={showTip}
+              onMouseLeave={() => setTip(null)}
+            />
           );
         });
       })}
@@ -248,5 +295,24 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
         {center.small}
       </text>
     </svg>
+
+      {tip && (
+        <div
+          className="pointer-events-none absolute z-20 w-max max-w-[220px] -translate-x-1/2 -translate-y-full rounded-lg border border-edge bg-card px-3 py-2 shadow-xl"
+          style={{ left: tip.x, top: tip.y - 12 }}
+        >
+          <div className="text-xs font-bold text-ink">{tip.label}</div>
+          <div className="mt-0.5 text-[10px] text-sub">
+            {tip.date}
+            {tip.status && ` · ${tip.status}`}
+          </div>
+          {tip.note && (
+            <div className="mt-1.5 whitespace-pre-wrap border-t border-edge pt-1.5 text-xs text-ink/90">
+              {tip.note}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

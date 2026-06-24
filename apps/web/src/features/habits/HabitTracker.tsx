@@ -7,10 +7,8 @@ import type { MonthLog, TodayLog } from '@/lib/api';
 import type { Range } from '@/lib/range';
 import { isLate, isoAddDays, mondayOfWeekMx, nowPartsMx } from '@/lib/time';
 import RangeToggle from '@/components/RangeToggle';
-import ActivityNote from './ActivityNote';
-import HabitButton from './HabitButton';
+import ActivityItem from './ActivityItem';
 import HabitSpiral, { type SpiralRing } from './HabitSpiral';
-import TreguaControl from './TreguaControl';
 
 export default function HabitTracker({
   dayLogs,
@@ -122,18 +120,29 @@ export default function HabitTracker({
   // ---- build one spiral ring per tracked thing ----
   const rings: SpiralRing[] = [];
 
-  // habit toggles: 1 on done days; track which of those were completed late
+  // habit toggles: 1 on done days; track which were completed late, plus any
+  // saved note (done, missed, or Tregua reason) for the hover tooltip.
   for (const g of GOALS) {
     const hour = GOAL_DEADLINE_HOUR[g.id];
     const fraction = new Map<string, number>();
     const lateDates = new Set<string>();
+    const notes = new Map<string, string>();
     for (const log of rangeLogs) {
-      if (log.goal_id === g.id && log.done) {
+      if (log.goal_id !== g.id) continue;
+      if (log.done) {
         fraction.set(log.log_date, 1);
         if (isLate(log.log_date, log.done_at, hour)) lateDates.add(log.log_date);
       }
+      if (log.note && log.note.trim() !== '') notes.set(log.log_date, log.note);
     }
-    rings.push({ id: g.id, label: g.label, fraction, lateDates, treguaDates: treguaDatesByGoal.get(g.id) });
+    rings.push({
+      id: g.id,
+      label: g.label,
+      fraction,
+      lateDates,
+      treguaDates: treguaDatesByGoal.get(g.id),
+      notes,
+    });
   }
 
   // applications (Notion): fraction of the daily target met
@@ -162,51 +171,22 @@ export default function HabitTracker({
             const tregua = (log?.tregua ?? false) || dayTreguaSelected;
             const ns = noteState(g.id, done, tregua);
             return (
-              <div key={g.id} className="flex flex-col gap-2">
-                <HabitButton
-                  goalId={g.id}
-                  label={g.label}
-                  done={log?.done ?? false}
-                  late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
-                  tregua={tregua}
-                  count={periodDoneCount.get(g.id) ?? 0}
-                  countLabel={periodLabel}
-                  streak={streakFor(g.id)}
-                  logDate={selectedDay}
-                  oneShot={g.oneShot}
-                  doneAt={log?.done_at ?? null}
-                />
-                {/* whole-day Tregua is shown once at the day level, not per activity */}
-                {dayTreguaSelected ? null : log?.tregua ? (
-                  <TreguaControl
-                    kind="activity"
-                    goalId={g.id}
-                    logDate={selectedDay}
-                    active
-                    reason={log.note ?? ''}
-                  />
-                ) : (
-                  <>
-                    {ns.show && (
-                      <ActivityNote
-                        goalId={g.id}
-                        logDate={selectedDay}
-                        initialNote={ns.note}
-                        required={ns.required}
-                      />
-                    )}
-                    {!done && (
-                      <TreguaControl
-                        kind="activity"
-                        goalId={g.id}
-                        logDate={selectedDay}
-                        active={false}
-                        reason=""
-                      />
-                    )}
-                  </>
-                )}
-              </div>
+              <ActivityItem
+                key={g.id}
+                goalId={g.id}
+                label={g.label}
+                logDate={selectedDay}
+                done={log?.done ?? false}
+                late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
+                tregua={tregua}
+                count={periodDoneCount.get(g.id) ?? 0}
+                countLabel={periodLabel}
+                streak={streakFor(g.id)}
+                oneShot={g.oneShot}
+                doneAt={log?.done_at ?? null}
+                noteRequired={ns.required}
+                note={log?.note ?? ''}
+              />
             );
           })}
 

@@ -10,10 +10,9 @@ import { rangeDays, type Range } from '@/lib/range';
 import { isoAddDays, nowPartsMx, parseDay, todayMx } from '@/lib/time';
 import DeadlineCard from '@/features/deadline/DeadlineCard';
 import HabitTracker from '@/features/habits/HabitTracker';
-import TreguaControl from '@/features/habits/TreguaControl';
 import TopicCards from '@/features/topics/TopicCards';
+import DayCard from './DayCard';
 import DayNav from './DayNav';
-import DayNote from './DayNote';
 import RefreshTimer from './RefreshTimer';
 
 export default async function DashboardPage({ spiralRange, day }: {
@@ -86,18 +85,12 @@ export default async function DashboardPage({ spiralRange, day }: {
         </section>
       )}
 
-      {dayTregua ? (
-        <TreguaControl kind="day" logDate={selectedDay} active reason={selectedMeta?.note ?? ''} />
-      ) : (
-        <>
-          <DayNote
-            logDate={selectedDay}
-            initialNote={selectedMeta?.note ?? ''}
-            required={dayNoteRequired}
-          />
-          <TreguaControl kind="day" logDate={selectedDay} active={false} reason="" />
-        </>
-      )}
+      <DayCard
+        logDate={selectedDay}
+        required={dayNoteRequired}
+        note={selectedMeta?.note ?? ''}
+        tregua={dayTregua}
+      />
 
       <HabitTracker
         dayLogs={dayLogs}
