@@ -22,10 +22,9 @@ export default async function DashboardPage({ spiralRange, day }: {
   const today = todayMx();
   const selectedDay = parseDay(day, today);
   const isToday = selectedDay >= today;
-  const monthStart = `${today.slice(0, 8)}01`;
 
-  // One fetch serves the spiral (at its selected range), the button counts
-  // (current month), and the topic cards' streaks (12 weeks minimum). Extend
+  // One fetch serves the spiral (at its selected range), the button counts (over
+  // that same range), and the topic cards' streaks (12 weeks minimum). Extend
   // the window back if the selected day is older than the spiral range.
   const windowDays = Math.max(84, rangeDays(spiralRange));
   const windowStart = isoAddDays(today, -windowDays);
@@ -37,7 +36,6 @@ export default async function DashboardPage({ spiralRange, day }: {
     getStatus(),
     getDayNote(selectedDay),
   ]);
-  const monthLogs = rangeData.logs.filter((l) => l.log_date >= monthStart);
 
   // The day being viewed/edited — derived from the range we already fetched.
   const dayLogs = rangeData.logs.filter((l) => l.log_date === selectedDay);
@@ -86,7 +84,6 @@ export default async function DashboardPage({ spiralRange, day }: {
 
       <HabitTracker
         dayLogs={dayLogs}
-        monthLogs={monthLogs}
         rangeLogs={rangeData.logs}
         appsDaily={appsDaily.daily}
         today={today}

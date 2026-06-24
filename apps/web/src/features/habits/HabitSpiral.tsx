@@ -9,7 +9,7 @@
 // Server-rendered inline SVG — no charting lib, zero client JS.
 
 import type { Range } from '@/lib/range';
-import { isoAddDays } from '@/lib/time';
+import { isoAddDays, mondayOfWeekMx } from '@/lib/time';
 
 export type SpiralRing = {
   id: string;
@@ -69,12 +69,16 @@ function weekdayIndexMx(iso: string): number {
 
 function buildSegments(range: Range, today: string, selectedDay: string): Segment[] {
   if (range === 'week') {
+    // The current calendar week, Mon→Sun. Upcoming days simply have no logs yet,
+    // so they render empty (rather than a rolling window that pulls in last
+    // week's same-weekday cells and looks like the future is already done).
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const monday = mondayOfWeekMx(today);
     return Array.from({ length: 7 }, (_, i) => {
-      const date = isoAddDays(today, i - 6);
+      const date = isoAddDays(monday, i);
       return {
         key: date,
-        label: labels[weekdayIndexMx(date)],
+        label: labels[i],
         isCurrent: date === today,
         isSelected: date === selectedDay,
         fillFor: (fraction) => fraction.get(date) ?? 0,
@@ -151,7 +155,7 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
 
   const center =
     range === 'week'
-      ? { big: segments[6].label, small: 'this week' }
+      ? { big: segments[currentIndex]?.label ?? '', small: 'this week' }
       : range === 'year'
         ? {
             big: new Date(`${today}T12:00:00Z`).toLocaleString('en', { month: 'short', timeZone: 'UTC' }),

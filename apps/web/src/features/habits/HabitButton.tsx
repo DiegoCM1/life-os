@@ -13,7 +13,8 @@ export default function HabitButton({
   label,
   done,
   late,
-  monthCount,
+  count,
+  countLabel,
   streak,
   logDate,
   oneShot = false,
@@ -23,7 +24,8 @@ export default function HabitButton({
   label: string;
   done: boolean;
   late: boolean; // done, but after the deadline → render yellow
-  monthCount: number;
+  count: number; // done-days within the active spiral range
+  countLabel: string; // 'this week' | 'this month' | 'this year'
   streak: number;
   logDate: string;
   oneShot?: boolean; // lock after first press, never untoggle
@@ -48,9 +50,9 @@ export default function HabitButton({
     startTransition(() => router.refresh());
   }
 
-  // monthCount reflects the server's view of `done`; shift it while optimistic.
-  const squares =
-    monthCount + (optimistic === null || optimistic === done ? 0 : optimistic ? 1 : -1);
+  // count reflects the server's view of `done`; shift it while optimistic.
+  const displayCount =
+    count + (optimistic === null || optimistic === done ? 0 : optimistic ? 1 : -1);
 
   // `late` is server-derived (needs done_at), so a fresh tap shows green first
   // and settles to yellow on the next refresh once the server reports it late.
@@ -87,7 +89,7 @@ export default function HabitButton({
           🔥 {streak}
         </span>
       )}
-      <span className="text-xs tabular-nums text-sub">{Math.max(0, squares)} this month</span>
+      <span className="text-xs tabular-nums text-sub">{Math.max(0, displayCount)} {countLabel}</span>
     </button>
   );
 }

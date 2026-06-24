@@ -26,6 +26,12 @@ export function isoAddDays(iso: string, delta: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Monday (ISO date) of the week containing `iso` — Mon-based week, tz-stable. */
+export function mondayOfWeekMx(iso: string): string {
+  const idx = (new Date(`${iso}T12:00:00Z`).getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+  return isoAddDays(iso, -idx);
+}
+
 /** Sanitize a ?day= param: a real YYYY-MM-DD no later than today, else today. */
 export function parseDay(value: string | undefined, today: string): string {
   if (!value) return today;

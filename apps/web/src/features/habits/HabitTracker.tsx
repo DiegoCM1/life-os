@@ -5,7 +5,7 @@
 import { APPLICATIONS_DAILY_TARGET, GOAL_DEADLINE_HOUR, GOALS } from '@/config/goals';
 import type { MonthLog, TodayLog } from '@/lib/api';
 import type { Range } from '@/lib/range';
-import { isLate, isoAddDays, nowPartsMx } from '@/lib/time';
+import { isLate, isoAddDays, mondayOfWeekMx, nowPartsMx } from '@/lib/time';
 import RangeToggle from '@/components/RangeToggle';
 import ActivityNote from './ActivityNote';
 import HabitButton from './HabitButton';
@@ -13,7 +13,6 @@ import HabitSpiral, { type SpiralRing } from './HabitSpiral';
 
 export default function HabitTracker({
   dayLogs,
-  monthLogs,
   rangeLogs,
   appsDaily,
   today,
@@ -22,7 +21,6 @@ export default function HabitTracker({
   spiralRange,
 }: {
   dayLogs: TodayLog[]; // the day being viewed/edited (today by default)
-  monthLogs: MonthLog[]; // current month only (button counts)
   rangeLogs: MonthLog[]; // full window for the selected spiral range
   appsDaily: { date: string; count: number }[]; // Notion applications per day
   today: string;
@@ -32,9 +30,21 @@ export default function HabitTracker({
 }) {
   const logByGoal = new Map(dayLogs.map((l) => [l.goal_id, l]));
 
-  const monthDoneCount = new Map<string, number>();
-  for (const log of monthLogs) {
-    if (log.done) monthDoneCount.set(log.goal_id, (monthDoneCount.get(log.goal_id) ?? 0) + 1);
+  // Per-goal done-count over the active spiral window, with a matching label, so
+  // the button reads "N this week/month/year" in step with the spiral.
+  const periodStart =
+    spiralRange === 'week'
+      ? mondayOfWeekMx(today) // current week, Mon→today
+      : spiralRange === 'year'
+        ? isoAddDays(today, -364)
+        : `${today.slice(0, 8)}01`; // month: from the 1st
+  const periodLabel =
+    spiralRange === 'week' ? 'this week' : spiralRange === 'year' ? 'this year' : 'this month';
+  const periodDoneCount = new Map<string, number>();
+  for (const log of rangeLogs) {
+    if (log.done && log.log_date >= periodStart) {
+      periodDoneCount.set(log.goal_id, (periodDoneCount.get(log.goal_id) ?? 0) + 1);
+    }
   }
 
   // Streak per goal: consecutive qualifying days ending today (or yesterday, so a
@@ -134,7 +144,8 @@ export default function HabitTracker({
                   label={g.label}
                   done={log?.done ?? false}
                   late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
-                  monthCount={monthDoneCount.get(g.id) ?? 0}
+                  count={periodDoneCount.get(g.id) ?? 0}
+                  countLabel={periodLabel}
                   streak={streakFor(g.id)}
                   logDate={selectedDay}
                   oneShot={g.oneShot}
