@@ -22,34 +22,39 @@ class LogUpsert(BaseModel):
     done: bool | None = None
     value: float | None = None
     note: str | None = Field(default=None, max_length=2000)
+    tregua: bool | None = None
 
 
 @router.put("/log")
 async def upsert_log(body: LogUpsert) -> dict[str, Any]:
-    if body.done is None and body.value is None and body.note is None:
-        raise HTTPException(status_code=422, detail="Provide done, value, and/or note")
+    if body.done is None and body.value is None and body.note is None and body.tregua is None:
+        raise HTTPException(status_code=422, detail="Provide done, value, note, and/or tregua")
     log_date = body.log_date or today_mx()
     # done_at stamps the moment done flips to true (and clears when it flips
-    # back). The frontend compares it to each goal's deadline to flag "late".
-    # note is the per-activity "why not done" reason. A field left null in the
-    # request is left untouched (so a note-only write keeps done/value, etc.).
+    # back). note is the per-activity reason. tregua excuses the activity and is
+    # mutually exclusive with done: marking done clears tregua, declaring tregua
+    # clears done. A field left null in the request is left untouched.
     row = await pool().fetchrow(
         """
-        insert into daily_log (log_date, goal_id, done, value, done_at, note)
-        values ($1, $2, $3, $4, case when $3 is true then now() end, $5)
+        insert into daily_log (log_date, goal_id, done, value, done_at, note, tregua)
+        values ($1, $2, $3, $4, case when $3 is true then now() end, $5, coalesce($6, false))
         on conflict (log_date, goal_id) do update set
-          done = coalesce(excluded.done, daily_log.done),
-          value = coalesce(excluded.value, daily_log.value),
+          done = case when $6 is true then false
+                      else coalesce($3, daily_log.done) end,
+          value = coalesce($4, daily_log.value),
           done_at = case
-            when excluded.done is true and daily_log.done is distinct from true then now()
-            when excluded.done is false then null
+            when $6 is true then null
+            when $3 is true and daily_log.done is distinct from true then now()
+            when $3 is false then null
             else daily_log.done_at
           end,
-          note = coalesce(excluded.note, daily_log.note),
+          note = coalesce($5, daily_log.note),
+          tregua = case when $3 is true then false
+                       else coalesce($6, daily_log.tregua) end,
           updated_at = now()
-        returning log_date, goal_id, done, value, done_at, note
+        returning log_date, goal_id, done, value, done_at, note, tregua
         """,
-        log_date, body.goal_id, body.done, body.value, body.note,
+        log_date, body.goal_id, body.done, body.value, body.note, body.tregua,
     )
     return dict(row)
 
@@ -58,7 +63,8 @@ async def upsert_log(body: LogUpsert) -> dict[str, Any]:
 async def get_today() -> dict[str, Any]:
     today = today_mx()
     rows = await pool().fetch(
-        "select goal_id, done, value, done_at, note from daily_log where log_date = $1", today
+        "select goal_id, done, value, done_at, note, tregua from daily_log where log_date = $1",
+        today,
     )
     return {"date": today.isoformat(), "logs": [dict(r) for r in rows]}
 
@@ -71,7 +77,7 @@ async def get_logs(
         raise HTTPException(status_code=422, detail="Invalid range")
     rows = await pool().fetch(
         """
-        select log_date, goal_id, done, value, done_at, note from daily_log
+        select log_date, goal_id, done, value, done_at, note, tregua from daily_log
         where log_date between $1 and $2 order by log_date
         """,
         start, end,
@@ -81,36 +87,56 @@ async def get_logs(
             {"log_date": r["log_date"].isoformat(), "goal_id": r["goal_id"],
              "done": r["done"], "value": float(r["value"]) if r["value"] is not None else None,
              "done_at": r["done_at"].isoformat() if r["done_at"] is not None else None,
-             "note": r["note"]}
+             "note": r["note"], "tregua": r["tregua"]}
             for r in rows
         ]
     }
 
 
-# ---------- day_meta (day-level note) ----------
+# ---------- day_meta (day-level note + whole-day Tregua) ----------
 
-class DayNotePut(BaseModel):
+class DayMetaPut(BaseModel):
     log_date: date | None = None  # defaults to today in America/Mexico_City
-    note: str = Field(max_length=2000)
+    note: str | None = Field(default=None, max_length=2000)
+    tregua: bool | None = None
 
 
-@router.put("/day-note")
-async def put_day_note(body: DayNotePut) -> dict[str, Any]:
+@router.put("/day-meta")
+async def put_day_meta(body: DayMetaPut) -> dict[str, Any]:
+    if body.note is None and body.tregua is None:
+        raise HTTPException(status_code=422, detail="Provide note and/or tregua")
     log_date = body.log_date or today_mx()
-    await pool().execute(
+    row = await pool().fetchrow(
         """
-        insert into day_meta (log_date, note) values ($1, $2)
-        on conflict (log_date) do update set note = excluded.note, updated_at = now()
+        insert into day_meta (log_date, note, tregua)
+        values ($1, $2, coalesce($3, false))
+        on conflict (log_date) do update set
+          note = coalesce($2, day_meta.note),
+          tregua = coalesce($3, day_meta.tregua),
+          updated_at = now()
+        returning log_date, note, tregua
         """,
-        log_date, body.note,
+        log_date, body.note, body.tregua,
     )
-    return {"log_date": log_date.isoformat(), "note": body.note}
+    return dict(row)
 
 
-@router.get("/day-note")
-async def get_day_note(date: date = Query(...)) -> dict[str, Any]:
-    row = await pool().fetchrow("select note from day_meta where log_date = $1", date)
-    return {"date": date.isoformat(), "note": row["note"] if row else None}
+@router.get("/day-meta")
+async def get_day_meta(
+    start: date = Query(...), end: date = Query(...)
+) -> dict[str, Any]:
+    if end < start or (end - start).days > 366:
+        raise HTTPException(status_code=422, detail="Invalid range")
+    rows = await pool().fetch(
+        "select log_date, note, tregua from day_meta where log_date between $1 and $2",
+        start, end,
+    )
+    return {
+        "days": [
+            {"log_date": r["log_date"].isoformat(), "note": r["note"], "tregua": r["tregua"]}
+            for r in rows
+        ]
+    }
 
 
 # ---------- status fields ----------

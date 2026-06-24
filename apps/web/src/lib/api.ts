@@ -9,8 +9,10 @@ export type TodayLog = {
   done: boolean | null;
   value: number | null;
   done_at: string | null; // ISO instant when done last flipped true; null otherwise
-  note: string | null; // per-activity "why not done" reason
+  note: string | null; // per-activity reason ("why not done" or Tregua reason)
+  tregua: boolean; // activity excused for the day (pauses the streak)
 };
+export type DayMeta = { log_date: string; note: string | null; tregua: boolean };
 export type MonthLog = TodayLog & { log_date: string };
 export type Applications = {
   configured: boolean;
@@ -76,5 +78,5 @@ export const getApplicationsStats = () =>
 
 export const getStatus = () => apiGet<Record<string, string>>('/status', {});
 
-export const getDayNote = (date: string) =>
-  apiGet<{ date: string; note: string | null }>(`/day-note?date=${date}`, { date, note: null });
+export const getDayMeta = (start: string, end: string) =>
+  apiGet<{ days: DayMeta[] }>(`/day-meta?start=${start}&end=${end}`, { days: [] });

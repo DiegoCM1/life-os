@@ -1,7 +1,7 @@
 import {
   getApplications,
   getApplicationsDaily,
-  getDayNote,
+  getDayMeta,
   getLogs,
   getStatus,
 } from '@/lib/api';
@@ -10,6 +10,7 @@ import { rangeDays, type Range } from '@/lib/range';
 import { isoAddDays, nowPartsMx, parseDay, todayMx } from '@/lib/time';
 import DeadlineCard from '@/features/deadline/DeadlineCard';
 import HabitTracker from '@/features/habits/HabitTracker';
+import TreguaControl from '@/features/habits/TreguaControl';
 import TopicCards from '@/features/topics/TopicCards';
 import DayNav from './DayNav';
 import DayNote from './DayNote';
@@ -29,12 +30,12 @@ export default async function DashboardPage({ spiralRange, day }: {
   const windowDays = Math.max(84, rangeDays(spiralRange));
   const windowStart = isoAddDays(today, -windowDays);
   const start = selectedDay < windowStart ? selectedDay : windowStart;
-  const [rangeData, apps, appsDaily, status, dayNote] = await Promise.all([
+  const [rangeData, apps, appsDaily, status, dayMeta] = await Promise.all([
     getLogs(start, today),
     getApplications(),
     getApplicationsDaily(windowDays),
     getStatus(),
-    getDayNote(selectedDay),
+    getDayMeta(start, today),
   ]);
 
   // The day being viewed/edited — derived from the range we already fetched.
@@ -44,15 +45,24 @@ export default async function DashboardPage({ spiralRange, day }: {
     ? apps.today_count
     : appsDaily.daily.find((d) => d.date === selectedDay)?.count ?? 0;
 
+  // Whole-day Tregua state (per date) for the spiral/streaks, plus this day's.
+  const dayTreguaDates = new Set(dayMeta.days.filter((d) => d.tregua).map((d) => d.log_date));
+  const selectedMeta = dayMeta.days.find((d) => d.log_date === selectedDay);
+  const dayTregua = dayTreguaDates.has(selectedDay);
+
   // Day completeness drives the (loud, mandatory) day note. The day is complete
-  // when every logged goal is done and the applications target is met. Notion
-  // being unreachable (null) doesn't count against you. A note becomes required
-  // once an incomplete day has closed: any past day, or today after DAY_CLOSE_HOUR.
-  const allGoalsDone = GOALS.every((g) => dayLogs.find((l) => l.goal_id === g.id)?.done === true);
-  const appsMet = appsCount === null || appsCount >= APPLICATIONS_DAILY_TARGET;
-  const dayComplete = allGoalsDone && appsMet;
+  // when every logged goal is done-or-excused and the applications target is met.
+  // Notion being unreachable (null) doesn't count against you. A note becomes
+  // required once an incomplete, non-Tregua day has closed: any past day, or
+  // today after DAY_CLOSE_HOUR.
+  const allGoalsSatisfied = GOALS.every((g) => {
+    const log = dayLogs.find((l) => l.goal_id === g.id);
+    return log?.done === true || log?.tregua === true || dayTregua;
+  });
+  const appsMet = appsCount === null || appsCount >= APPLICATIONS_DAILY_TARGET || dayTregua;
+  const dayComplete = allGoalsSatisfied && appsMet;
   const dayClosed = !isToday || nowPartsMx().hour >= DAY_CLOSE_HOUR;
-  const dayNoteRequired = dayClosed && !dayComplete;
+  const dayNoteRequired = dayClosed && !dayComplete && !dayTregua;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-5">
@@ -76,11 +86,18 @@ export default async function DashboardPage({ spiralRange, day }: {
         </section>
       )}
 
-      <DayNote
-        logDate={selectedDay}
-        initialNote={dayNote.note ?? ''}
-        required={dayNoteRequired}
-      />
+      {dayTregua ? (
+        <TreguaControl kind="day" logDate={selectedDay} active reason={selectedMeta?.note ?? ''} />
+      ) : (
+        <>
+          <DayNote
+            logDate={selectedDay}
+            initialNote={selectedMeta?.note ?? ''}
+            required={dayNoteRequired}
+          />
+          <TreguaControl kind="day" logDate={selectedDay} active={false} reason="" />
+        </>
+      )}
 
       <HabitTracker
         dayLogs={dayLogs}
@@ -90,6 +107,7 @@ export default async function DashboardPage({ spiralRange, day }: {
         selectedDay={selectedDay}
         appsCount={appsCount}
         spiralRange={spiralRange}
+        dayTreguaDates={dayTreguaDates}
       />
 
       <section className="card flex items-center gap-4 py-3.5">

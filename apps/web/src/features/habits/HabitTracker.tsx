@@ -10,6 +10,7 @@ import RangeToggle from '@/components/RangeToggle';
 import ActivityNote from './ActivityNote';
 import HabitButton from './HabitButton';
 import HabitSpiral, { type SpiralRing } from './HabitSpiral';
+import TreguaControl from './TreguaControl';
 
 export default function HabitTracker({
   dayLogs,
@@ -19,6 +20,7 @@ export default function HabitTracker({
   selectedDay,
   appsCount,
   spiralRange,
+  dayTreguaDates,
 }: {
   dayLogs: TodayLog[]; // the day being viewed/edited (today by default)
   rangeLogs: MonthLog[]; // full window for the selected spiral range
@@ -27,8 +29,19 @@ export default function HabitTracker({
   selectedDay: string; // date that taps write to
   appsCount: number | null;
   spiralRange: Range;
+  dayTreguaDates: Set<string>; // dates declared a whole-day Tregua
 }) {
   const logByGoal = new Map(dayLogs.map((l) => [l.goal_id, l]));
+  const dayTreguaSelected = dayTreguaDates.has(selectedDay);
+
+  // Tregua dates per goal: a date is excused if the activity itself is Tregua, or
+  // the whole day is. Used to bridge the streak and paint the spiral purple.
+  const treguaDatesByGoal = new Map<string, Set<string>>(
+    GOALS.map((g) => [g.id, new Set(dayTreguaDates)]),
+  );
+  for (const log of rangeLogs) {
+    if (log.tregua) treguaDatesByGoal.get(log.goal_id)?.add(log.log_date);
+  }
 
   // Per-goal done-count over the active spiral window, with a matching label, so
   // the button reads "N this week/month/year" in step with the spiral.
@@ -65,20 +78,23 @@ export default function HabitTracker({
     streakDatesByGoal.get(log.goal_id)!.add(log.log_date);
   }
   const streakFor = (goalId: string): number => {
-    const dates = streakDatesByGoal.get(goalId);
-    if (!dates) return 0;
+    const dates = streakDatesByGoal.get(goalId) ?? new Set<string>();
+    const tregua = treguaDatesByGoal.get(goalId) ?? new Set<string>();
     let cursor: string;
     if (dates.has(today)) {
       cursor = today;
+    } else if (tregua.has(today)) {
+      cursor = isoAddDays(today, -1); // today excused → bridge over it
     } else {
       // today logged but not qualifying (e.g. a late wake-up) → broken now.
       const tl = todayLogByGoal.get(goalId);
       if (tl?.done && !qualifies(tl)) return 0;
       cursor = isoAddDays(today, -1);
     }
+    // Count successes; bridge (skip without counting) Tregua days; stop at a miss.
     let streak = 0;
-    while (dates.has(cursor)) {
-      streak += 1;
+    while (dates.has(cursor) || tregua.has(cursor)) {
+      if (dates.has(cursor)) streak += 1;
       cursor = isoAddDays(cursor, -1);
     }
     return streak;
@@ -91,15 +107,16 @@ export default function HabitTracker({
   // no deadline only close at end of day, so they never nag on today). The field
   // also shows — calmly — whenever a note already exists, so you can read/edit it.
   const currentHour = nowPartsMx().hour;
-  const noteState = (goalId: string, fulfilled: boolean) => {
+  const noteState = (goalId: string, fulfilled: boolean, tregua: boolean) => {
     const log = logByGoal.get(goalId);
     const deadlineHour = GOAL_DEADLINE_HOUR[goalId];
     const windowClosed =
       selectedDay < today ||
       (selectedDay === today && deadlineHour !== undefined && currentHour >= deadlineHour);
-    const required = windowClosed && !fulfilled;
+    const required = windowClosed && !fulfilled && !tregua;
     const note = log?.note ?? '';
-    return { required, note, show: required || note.trim() !== '' };
+    // A Tregua activity shows its reason via the Tregua control, not here.
+    return { required, note, show: !tregua && (required || note.trim() !== '') };
   };
 
   // ---- build one spiral ring per tracked thing ----
@@ -116,7 +133,7 @@ export default function HabitTracker({
         if (isLate(log.log_date, log.done_at, hour)) lateDates.add(log.log_date);
       }
     }
-    rings.push({ id: g.id, label: g.label, fraction, lateDates });
+    rings.push({ id: g.id, label: g.label, fraction, lateDates, treguaDates: treguaDatesByGoal.get(g.id) });
   }
 
   // applications (Notion): fraction of the daily target met
@@ -124,7 +141,12 @@ export default function HabitTracker({
   for (const d of appsDaily) {
     if (d.count > 0) appsFraction.set(d.date, Math.min(1, d.count / APPLICATIONS_DAILY_TARGET));
   }
-  rings.push({ id: 'applications', label: 'Applications', fraction: appsFraction });
+  rings.push({
+    id: 'applications',
+    label: 'Applications',
+    fraction: appsFraction,
+    treguaDates: new Set(dayTreguaDates), // applications follow whole-day Tregua only
+  });
 
   return (
     <section className="card">
@@ -136,7 +158,9 @@ export default function HabitTracker({
         <div className="flex w-full flex-col gap-2.5 md:w-72">
           {GOALS.map((g) => {
             const log = logByGoal.get(g.id);
-            const ns = noteState(g.id, log?.done === true);
+            const done = log?.done === true;
+            const tregua = (log?.tregua ?? false) || dayTreguaSelected;
+            const ns = noteState(g.id, done, tregua);
             return (
               <div key={g.id} className="flex flex-col gap-2">
                 <HabitButton
@@ -144,6 +168,7 @@ export default function HabitTracker({
                   label={g.label}
                   done={log?.done ?? false}
                   late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
+                  tregua={tregua}
                   count={periodDoneCount.get(g.id) ?? 0}
                   countLabel={periodLabel}
                   streak={streakFor(g.id)}
@@ -151,13 +176,35 @@ export default function HabitTracker({
                   oneShot={g.oneShot}
                   doneAt={log?.done_at ?? null}
                 />
-                {ns.show && (
-                  <ActivityNote
+                {/* whole-day Tregua is shown once at the day level, not per activity */}
+                {dayTreguaSelected ? null : log?.tregua ? (
+                  <TreguaControl
+                    kind="activity"
                     goalId={g.id}
                     logDate={selectedDay}
-                    initialNote={ns.note}
-                    required={ns.required}
+                    active
+                    reason={log.note ?? ''}
                   />
+                ) : (
+                  <>
+                    {ns.show && (
+                      <ActivityNote
+                        goalId={g.id}
+                        logDate={selectedDay}
+                        initialNote={ns.note}
+                        required={ns.required}
+                      />
+                    )}
+                    {!done && (
+                      <TreguaControl
+                        kind="activity"
+                        goalId={g.id}
+                        logDate={selectedDay}
+                        active={false}
+                        reason=""
+                      />
+                    )}
+                  </>
                 )}
               </div>
             );

@@ -14,9 +14,11 @@ export default {
         good: '#3ddc84',
         bad: '#ff5252',
         warn: '#ffb020',
+        tregua: '#a855f7',
         'good-dim': '#10231a',
         'bad-dim': '#2a1216',
         'warn-dim': '#2a2107',
+        'tregua-dim': '#1d1033',
         well: '#0e1320',
       },
       keyframes: {

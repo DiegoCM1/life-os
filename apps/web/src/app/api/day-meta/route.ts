@@ -5,6 +5,6 @@ import { apiForward } from '@/lib/api';
 export async function PUT(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'bad body' }, { status: 422 });
-  const upstream = await apiForward('/day-note', 'PUT', body);
+  const upstream = await apiForward('/day-meta', 'PUT', body);
   return NextResponse.json(await upstream.json(), { status: upstream.status });
 }

@@ -18,6 +18,8 @@ export type SpiralRing = {
   fraction: Map<string, number>;
   /** dates where the (full) completion was logged after the deadline */
   lateDates?: Set<string>;
+  /** dates excused by a Tregua (activity or whole-day) — rendered purple */
+  treguaDates?: Set<string>;
 };
 
 const SIZE = 560;
@@ -31,6 +33,8 @@ const RING_GAP = 3;
 const GREEN_SCALE = ['#1d4732', '#2a8a55', '#3ddc84'];
 // late completions render amber instead of green (same --warn hue)
 const AMBER_SCALE = ['#5a4410', '#c78a14', '#ffb020'];
+// Tregua (excused) cells render solid purple (same --tregua hue)
+const TREGUA_COLOR = '#a855f7';
 
 function polar(r: number, deg: number): [number, number] {
   const rad = ((deg - 90) * Math.PI) / 180; // 0° = 12 o'clock, clockwise
@@ -125,10 +129,11 @@ function buildSegments(range: Range, today: string, selectedDay: string): Segmen
   });
 }
 
-function cellFill(fill: number, isPast: boolean, isCurrent: boolean, late: boolean): {
+function cellFill(fill: number, isPast: boolean, isCurrent: boolean, late: boolean, tregua: boolean): {
   className?: string;
   fill?: string;
 } {
+  if (tregua) return { fill: TREGUA_COLOR };
   if (fill > 0) {
     const scale = late ? AMBER_SCALE : GREEN_SCALE;
     return { fill: scale[fill <= 0.4 ? 0 : fill < 1 ? 1 : 2] };
@@ -194,7 +199,8 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
           const a1 = (i + 1) * anglePer - angleGap / 2;
           const isPast = currentIndex >= 0 && i < currentIndex;
           const late = ring.lateDates?.has(seg.key) ?? false;
-          const style = cellFill(seg.fillFor(ring.fraction), isPast, seg.isCurrent, late);
+          const tregua = ring.treguaDates?.has(seg.key) ?? false;
+          const style = cellFill(seg.fillFor(ring.fraction), isPast, seg.isCurrent, late, tregua);
           const isSel = isPastView && seg.isSelected;
           return (
             <path
