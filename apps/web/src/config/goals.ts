@@ -27,6 +27,11 @@ export const GOAL_DEADLINE_HOUR: Record<string, number> = {
   interview_prep: 19,
 };
 
+// The whole-day "window" closes after the last activity deadline (evening).
+// Past this hour today — or on any past day — an incomplete day requires a
+// day-level note.
+export const DAY_CLOSE_HOUR = 19;
+
 // Shown on the top card once BOTH deadlines are cleared. Rotates.
 export const VICTORY_LINES = [
   // joe-rogan energy
@@ -91,12 +96,15 @@ export type GoalDef = {
   label: string;
   /** one-shot goals lock after the first press and record the press time (done_at). */
   oneShot?: boolean;
+  /** if set, a LATE completion does not count toward the streak — it breaks it.
+   *  (For wake-up: you always wake eventually, so the streak is about being on time.) */
+  streakNeedsOnTime?: boolean;
 };
 
 // Today's non-negotiables, logged by tapping in the web app.
 // (Applications are NOT here — they come read-only from Notion.)
 export const GOALS: GoalDef[] = [
-  { id: 'wake_up', label: 'Wake up early', oneShot: true },
+  { id: 'wake_up', label: 'Wake up early', oneShot: true, streakNeedsOnTime: true },
   { id: 'posted', label: 'Posted' },
   { id: 'calisthenics', label: 'Calisthenics' },
   { id: 'interview_prep', label: 'Interview Prep + Studying' },

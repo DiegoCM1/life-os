@@ -87,6 +87,32 @@ async def get_logs(
     }
 
 
+# ---------- day_meta (day-level note) ----------
+
+class DayNotePut(BaseModel):
+    log_date: date | None = None  # defaults to today in America/Mexico_City
+    note: str = Field(max_length=2000)
+
+
+@router.put("/day-note")
+async def put_day_note(body: DayNotePut) -> dict[str, Any]:
+    log_date = body.log_date or today_mx()
+    await pool().execute(
+        """
+        insert into day_meta (log_date, note) values ($1, $2)
+        on conflict (log_date) do update set note = excluded.note, updated_at = now()
+        """,
+        log_date, body.note,
+    )
+    return {"log_date": log_date.isoformat(), "note": body.note}
+
+
+@router.get("/day-note")
+async def get_day_note(date: date = Query(...)) -> dict[str, Any]:
+    row = await pool().fetchrow("select note from day_meta where log_date = $1", date)
+    return {"date": date.isoformat(), "note": row["note"] if row else None}
+
+
 # ---------- status fields ----------
 
 @router.get("/status")

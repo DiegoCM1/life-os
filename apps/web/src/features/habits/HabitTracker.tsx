@@ -37,20 +37,37 @@ export default function HabitTracker({
     if (log.done) monthDoneCount.set(log.goal_id, (monthDoneCount.get(log.goal_id) ?? 0) + 1);
   }
 
-  // Streak per goal: consecutive done days ending today (or yesterday, so a
-  // not-yet-logged today doesn't read as broken before the day is over).
-  const doneDatesByGoal = new Map<string, Set<string>>();
+  // Streak per goal: consecutive qualifying days ending today (or yesterday, so a
+  // not-yet-logged today doesn't read as broken before the day is over). A day
+  // qualifies if it was done — except for goals flagged streakNeedsOnTime (e.g.
+  // wake-up), where a LATE completion does not qualify and breaks the streak.
+  const onTimeRequired = new Map(GOALS.map((g) => [g.id, g.streakNeedsOnTime ?? false]));
+  const qualifies = (log: MonthLog): boolean =>
+    !!log.done &&
+    !(onTimeRequired.get(log.goal_id) && isLate(log.log_date, log.done_at, GOAL_DEADLINE_HOUR[log.goal_id]));
+
+  const streakDatesByGoal = new Map<string, Set<string>>();
+  const todayLogByGoal = new Map<string, MonthLog>();
   for (const log of rangeLogs) {
-    if (!log.done) continue;
-    if (!doneDatesByGoal.has(log.goal_id)) doneDatesByGoal.set(log.goal_id, new Set());
-    doneDatesByGoal.get(log.goal_id)!.add(log.log_date);
+    if (log.log_date === today) todayLogByGoal.set(log.goal_id, log);
+    if (!qualifies(log)) continue;
+    if (!streakDatesByGoal.has(log.goal_id)) streakDatesByGoal.set(log.goal_id, new Set());
+    streakDatesByGoal.get(log.goal_id)!.add(log.log_date);
   }
   const streakFor = (goalId: string): number => {
-    const done = doneDatesByGoal.get(goalId);
-    if (!done) return 0;
-    let cursor = done.has(today) ? today : isoAddDays(today, -1);
+    const dates = streakDatesByGoal.get(goalId);
+    if (!dates) return 0;
+    let cursor: string;
+    if (dates.has(today)) {
+      cursor = today;
+    } else {
+      // today logged but not qualifying (e.g. a late wake-up) → broken now.
+      const tl = todayLogByGoal.get(goalId);
+      if (tl?.done && !qualifies(tl)) return 0;
+      cursor = isoAddDays(today, -1);
+    }
     let streak = 0;
-    while (done.has(cursor)) {
+    while (dates.has(cursor)) {
       streak += 1;
       cursor = isoAddDays(cursor, -1);
     }

@@ -75,3 +75,6 @@ export const getApplicationsStats = () =>
   });
 
 export const getStatus = () => apiGet<Record<string, string>>('/status', {});
+
+export const getDayNote = (date: string) =>
+  apiGet<{ date: string; note: string | null }>(`/day-note?date=${date}`, { date, note: null });
