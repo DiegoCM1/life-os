@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-// The day-level card: a slim "Day note" card with an in-card ⋯ menu (Add a note
-// / Declare Tregua day). Turns loud-red and forces a note when the day is
-// incomplete and closed; turns purple when the whole day is a Tregua.
+// The day-level card: a slim card with an in-card ⋯ menu (Add/Edit note,
+// Declare/Undo Tregua day). Editing happens inside this one card; a saved note
+// or Tregua reason shows on hover. Turns loud-red and forces a note when the day
+// is incomplete and closed; turns purple when the whole day is a Tregua.
 export default function DayCard({ logDate, required, note: initialNote, tregua }: {
   logDate: string;
   required: boolean;
@@ -41,12 +42,21 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
     return res;
   }
 
-  async function saveNote() {
-    if (noteText === initialNote) return;
-    setBusy(true);
-    const res = await put({ note: noteText });
-    setBusy(false);
-    setSaved(res.ok);
+  // Inline editor: explicit Okay / cancel (and Enter) instead of blur-to-save.
+  async function okNote() {
+    if (noteText !== initialNote) {
+      setBusy(true);
+      const res = await put({ note: noteText });
+      setBusy(false);
+      setSaved(res.ok);
+    }
+    setPanel('none');
+  }
+
+  function cancelNote() {
+    setNoteText(initialNote); // drop unsaved edits
+    setSaved(false);
+    setPanel('none');
   }
 
   async function declareTregua() {
@@ -63,12 +73,17 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
     setBusy(false);
   }
 
+  const hasNote = initialNote.trim() !== '';
+  const editing = panel === 'note';
+  const declaring = panel === 'tregua';
   const noteLoud = !tregua && required && noteText.trim() === '';
-  const showNote = !tregua && (required || initialNote.trim() !== '' || panel === 'note');
+  // A still-empty required note nags as an open editor; once filled it collapses
+  // and the note lives on hover. Editing always wins over the nag.
+  const mustNag = !tregua && !editing && required && !hasNote;
 
   return (
     <section
-      className={`card ${
+      className={`card group relative ${
         tregua
           ? 'border-tregua bg-tregua-dim'
           : noteLoud
@@ -87,6 +102,7 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
             : noteLoud
               ? '⚠ Incomplete day — add a note (required)'
               : 'Day note'}
+          {hasNote && !editing && !declaring && <span className="ml-1.5 text-[11px]">📝</span>}
         </span>
         <div className="flex items-center gap-2">
           {busy ? (
@@ -94,30 +110,37 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
           ) : saved ? (
             <span className="text-[10px] text-good">saved ✓</span>
           ) : null}
-          {tregua ? (
-            <button onClick={undoTregua} disabled={busy} className="text-[10px] text-sub hover:text-ink">
-              undo
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="More options"
+              className="px-1.5 leading-none text-sub transition-colors hover:text-ink"
+            >
+              ⋯
             </button>
-          ) : (
-            <div ref={menuRef} className="relative">
-              <button
-                onClick={() => setMenuOpen((o) => !o)}
-                aria-label="More options"
-                className="px-1.5 leading-none text-sub transition-colors hover:text-ink"
-              >
-                ⋯
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-edge bg-card p-1 shadow-lg">
+            {menuOpen && (
+              <div className="absolute right-0 z-10 mt-1 w-48 rounded-lg border border-edge bg-card p-1 shadow-lg">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setPanel('note');
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-well"
+                >
+                  {tregua ? '✎ Edit reason' : hasNote ? '✎ Edit note' : '＋ Add a note'}
+                </button>
+                {tregua ? (
                   <button
                     onClick={() => {
                       setMenuOpen(false);
-                      setPanel('note');
+                      undoTregua();
                     }}
-                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-well"
+                    disabled={busy}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-tregua transition-colors hover:bg-well disabled:opacity-40"
                   >
-                    ＋ Add a note
+                    🟣 Undo Tregua day
                   </button>
+                ) : (
                   <button
                     onClick={() => {
                       setMenuOpen(false);
@@ -128,21 +151,36 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
                   >
                     🟣 Declare Tregua day
                   </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {tregua ? (
-        initialNote ? <p className="mt-2 text-sm text-sub">{initialNote}</p> : null
-      ) : panel === 'tregua' ? (
+      {/* note / Tregua reason revealed on hover */}
+      {hasNote && !menuOpen && !editing && !declaring && (
+        <div className="pointer-events-none absolute bottom-full left-4 z-30 mb-1 hidden w-max max-w-[320px] rounded-lg border border-edge bg-card px-3 py-2 shadow-xl group-hover:block">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-sub">
+            {tregua ? 'Tregua' : 'Note'}
+          </div>
+          <div className="mt-1 whitespace-pre-wrap text-xs text-ink/90">{initialNote}</div>
+        </div>
+      )}
+
+      {/* inline editors (live in this same card) */}
+      {declaring ? (
         <div className="mt-2">
           <textarea
             autoFocus
             value={treguaText}
             onChange={(e) => setTreguaText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                declareTregua();
+              }
+            }}
             rows={2}
             placeholder="Why was the whole day impossible? (external forces)"
             className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
@@ -160,19 +198,42 @@ export default function DayCard({ logDate, required, note: initialNote, tregua }
             </button>
           </div>
         </div>
-      ) : showNote ? (
-        <textarea
-          autoFocus={panel === 'note' && initialNote.trim() === ''}
-          value={noteText}
-          onChange={(e) => {
-            setNoteText(e.target.value);
-            setSaved(false);
-          }}
-          onBlur={saveNote}
-          rows={2}
-          placeholder="A line of context for this day, so future-you remembers…"
-          className="mt-2 w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
-        />
+      ) : editing || mustNag ? (
+        <div className="mt-2">
+          <textarea
+            autoFocus={editing}
+            value={noteText}
+            onChange={(e) => {
+              setNoteText(e.target.value);
+              setSaved(false);
+            }}
+            onKeyDown={(e) => {
+              // Enter saves & closes; Shift+Enter inserts a newline.
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                okNote();
+              }
+            }}
+            onBlur={editing ? undefined : okNote}
+            rows={2}
+            placeholder="A line of context for this day, so future-you remembers…"
+            className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
+          />
+          {editing && (
+            <div className="mt-1 flex justify-end gap-2">
+              <button onClick={cancelNote} className="text-[10px] text-sub hover:text-ink">
+                cancel
+              </button>
+              <button
+                onClick={okNote}
+                disabled={busy}
+                className="rounded bg-good/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-good disabled:opacity-40"
+              >
+                Okay
+              </button>
+            </div>
+          )}
+        </div>
       ) : null}
     </section>
   );

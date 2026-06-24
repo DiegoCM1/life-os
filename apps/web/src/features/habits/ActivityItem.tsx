@@ -22,6 +22,7 @@ export default function ActivityItem({
   doneAt = null,
   noteRequired,
   note: initialNote,
+  dayTregua = false,
 }: {
   goalId: string;
   label: string;
@@ -29,6 +30,7 @@ export default function ActivityItem({
   done: boolean;
   late: boolean;
   tregua: boolean;
+  dayTregua?: boolean; // the whole day is a Tregua → this task is purple regardless of done
   count: number;
   countLabel: string;
   streak: number;
@@ -51,7 +53,10 @@ export default function ActivityItem({
   const isDone = optimistic ?? done;
   const locked = oneShot && isDone;
   const isLate = isDone && late;
-  const isTregua = tregua && !isDone;
+  // Per-activity Tregua is mutually exclusive with done; a whole-day Tregua
+  // paints everything purple, even already-done tasks (matches the spiral).
+  const activityTregua = tregua && !isDone;
+  const isTregua = dayTregua || activityTregua;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -130,8 +135,9 @@ export default function ActivityItem({
   const hasNote = initialNote.trim() !== '';
   const editing = panel === 'note';
   // Editing takes over the card itself (one card, not two): the toggle row is
-  // swapped for the editor until you hit Okay/cancel, then it reverts.
-  const showInlineEditor = !isTregua && editing;
+  // swapped for the editor until you hit Okay/cancel, then it reverts. For a
+  // Tregua, the note field holds the reason, so this edits that too.
+  const showInlineEditor = editing;
   // A still-empty required note nags as its own loud card beneath, so the toggle
   // stays usable. Once a note exists it lives only on the card's hover tooltip —
   // no extra card is ever shown.
@@ -145,7 +151,7 @@ export default function ActivityItem({
         <div className="min-h-[56px] rounded-xl border border-edge bg-well px-3 py-2">
           <div className="mb-1 flex items-center justify-between gap-2">
             <span className="truncate text-[10px] font-bold uppercase tracking-wide text-sub">
-              {noteRequired ? 'Why not done?' : 'Note'} · {label}
+              {activityTregua ? 'Tregua reason' : noteRequired ? 'Why not done?' : 'Note'} · {label}
             </span>
             {busy ? (
               <span className="text-[10px] text-sub">saving…</span>
@@ -181,6 +187,39 @@ export default function ActivityItem({
               className="rounded bg-good/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-good disabled:opacity-40"
             >
               Okay
+            </button>
+          </div>
+        </div>
+      ) : panel === 'tregua' ? (
+        <div className="min-h-[56px] rounded-xl border border-tregua bg-tregua-dim px-3 py-2">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-tregua">
+            Reason for Tregua (required)
+          </span>
+          <textarea
+            autoFocus
+            value={treguaText}
+            onChange={(e) => setTreguaText(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter confirms; Shift+Enter inserts a newline.
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                declareTregua();
+              }
+            }}
+            rows={2}
+            placeholder="Why was this impossible? (external forces)"
+            className="mt-1 w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
+          />
+          <div className="mt-1 flex justify-end gap-2">
+            <button onClick={() => setPanel('none')} className="text-[10px] text-sub hover:text-ink">
+              cancel
+            </button>
+            <button
+              onClick={declareTregua}
+              disabled={treguaText.trim() === '' || busy}
+              className="rounded bg-tregua/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tregua disabled:opacity-40"
+            >
+              Confirm
             </button>
           </div>
         </div>
@@ -240,7 +279,9 @@ export default function ActivityItem({
         {/* note revealed on hover (also visible on the spiral cell) */}
         {hasNote && !menuOpen && (
           <div className="pointer-events-none absolute bottom-full left-3 z-30 mb-1 hidden w-max max-w-[260px] rounded-lg border border-edge bg-card px-3 py-2 shadow-xl group-hover:block">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-sub">Note</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-sub">
+              {isTregua ? 'Tregua' : 'Note'}
+            </div>
             <div className="mt-1 whitespace-pre-wrap text-xs text-ink/90">{initialNote}</div>
           </div>
         )}
@@ -263,9 +304,20 @@ export default function ActivityItem({
                 }}
                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-well"
               >
-                {hasNote ? '✎ Edit note' : '＋ Add a note'}
+                {activityTregua ? '✎ Edit reason' : hasNote ? '✎ Edit note' : '＋ Add a note'}
               </button>
-              {!isDone && !isTregua && (
+              {activityTregua ? (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    undoTregua();
+                  }}
+                  disabled={busy}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-tregua transition-colors hover:bg-well disabled:opacity-40"
+                >
+                  🟣 Undo Tregua
+                </button>
+              ) : dayTregua ? null : !isDone ? (
                 <button
                   onClick={() => {
                     setMenuOpen(false);
@@ -276,51 +328,15 @@ export default function ActivityItem({
                 >
                   🟣 Declare Tregua
                 </button>
-              )}
+              ) : null}
             </div>
           )}
         </div>
       </div>
       )}
 
-      {/* below the card: active Tregua, Tregua reason, required-note nag, or preview chip */}
-      {isTregua ? (
-        <div className="rounded-xl border border-tregua bg-tregua-dim px-3 py-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-tregua">🟣 Tregua</span>
-            <button onClick={undoTregua} disabled={busy} className="text-[10px] text-sub hover:text-ink">
-              undo
-            </button>
-          </div>
-          {initialNote && <p className="mt-1 text-sm text-sub">{initialNote}</p>}
-        </div>
-      ) : panel === 'tregua' ? (
-        <div className="rounded-xl border border-tregua bg-tregua-dim px-3 py-2">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-tregua">
-            Reason for Tregua (required)
-          </span>
-          <textarea
-            autoFocus
-            value={treguaText}
-            onChange={(e) => setTreguaText(e.target.value)}
-            rows={2}
-            placeholder="Why was this impossible? (external forces)"
-            className="mt-1 w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
-          />
-          <div className="mt-1 flex justify-end gap-2">
-            <button onClick={() => setPanel('none')} className="text-[10px] text-sub hover:text-ink">
-              cancel
-            </button>
-            <button
-              onClick={declareTregua}
-              disabled={treguaText.trim() === '' || busy}
-              className="rounded bg-tregua/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tregua disabled:opacity-40"
-            >
-              Confirm
-            </button>
-          </div>
-        </div>
-      ) : showNagCard ? (
+      {/* below the card: only the loud required-note nag — Tregua & notes live in the card itself */}
+      {showNagCard ? (
         <div
           className={`rounded-xl border px-3 py-2 ${
             noteLoud ? 'animate-pulsebad border-bad bg-bad-dim' : 'border-edge bg-well'

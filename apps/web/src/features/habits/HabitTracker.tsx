@@ -168,7 +168,8 @@ export default function HabitTracker({
           {GOALS.map((g) => {
             const log = logByGoal.get(g.id);
             const done = log?.done === true;
-            const tregua = (log?.tregua ?? false) || dayTreguaSelected;
+            const activityTregua = log?.tregua ?? false;
+            const tregua = activityTregua || dayTreguaSelected;
             const ns = noteState(g.id, done, tregua);
             return (
               <ActivityItem
@@ -178,7 +179,8 @@ export default function HabitTracker({
                 logDate={selectedDay}
                 done={log?.done ?? false}
                 late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
-                tregua={tregua}
+                tregua={activityTregua}
+                dayTregua={dayTreguaSelected}
                 count={periodDoneCount.get(g.id) ?? 0}
                 countLabel={periodLabel}
                 streak={streakFor(g.id)}

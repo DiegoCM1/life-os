@@ -43,6 +43,14 @@ const AMBER_SCALE = ['#5a4410', '#c78a14', '#ffb020'];
 // Tregua (excused) cells render solid purple (same --tregua hue)
 const TREGUA_COLOR = '#a855f7';
 
+// Legend: what each cell color means. `dim` cells are missed past days.
+const LEGEND: { label: string; color?: string; dim?: boolean }[] = [
+  { label: 'Done', color: GREEN_SCALE[2] },
+  { label: 'Late', color: AMBER_SCALE[2] },
+  { label: 'Tregua', color: TREGUA_COLOR },
+  { label: 'Missed', dim: true },
+];
+
 function polar(r: number, deg: number): [number, number] {
   const rad = ((deg - 90) * Math.PI) / 180; // 0° = 12 o'clock, clockwise
   return [C + r * Math.cos(rad), C + r * Math.sin(rad)];
@@ -329,6 +337,19 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
           )}
         </div>
       )}
+
+      {/* color legend */}
+      <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+        {LEGEND.map((item) => (
+          <li key={item.label} className="flex items-center gap-1.5 text-[11px] text-sub">
+            <span
+              className={`inline-block h-3 w-3 rounded-[3px] ${item.dim ? 'bg-edge/50' : ''}`}
+              style={item.color ? { backgroundColor: item.color } : undefined}
+            />
+            {item.label}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
