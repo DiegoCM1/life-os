@@ -261,6 +261,13 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
           const style = cellFill(fillVal, isPast, seg.isCurrent, late, fail, tregua);
           const isSel = isPastView && seg.isSelected;
           const note = ring.notes?.get(seg.key);
+          // A red cell that still owes a failure reason gets a breathing dot, so
+          // missed days with no note stand out from ones already explained.
+          // Only goal rings carry notes (Applications is read-only Notion), and
+          // only day-granular ranges map a cell 1:1 to a note.
+          const noteable = ring.notes !== undefined && range !== 'year';
+          const needsReason = noteable && style.fill === MISSED_COLOR && !note;
+          const [markX, markY] = polar((r0 + r1) / 2, (i + 0.5) * anglePer);
           const status = tregua
             ? 'Tregua'
             : fillVal >= 1
@@ -289,19 +296,38 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
           // Cells up to today are clickable; future days can't be viewed/edited.
           const navigable = seg.key <= today;
           return (
-            <path
-              key={`${ring.id}-${seg.key}`}
-              d={cellPath(r0, r1, a0, a1)}
-              className={`${style.className ?? ''} ${isSel ? 'stroke-[#ec4899]' : ''} ${
-                navigable ? 'cursor-pointer' : ''
-              }`}
-              fill={style.fill}
-              strokeWidth={isSel ? 2 : 1}
-              onMouseEnter={showTip}
-              onMouseMove={showTip}
-              onMouseLeave={() => setTip(null)}
-              onClick={navigable ? () => router.push(dayHref(seg.key)) : undefined}
-            />
+            <g key={`${ring.id}-${seg.key}`}>
+              <path
+                d={cellPath(r0, r1, a0, a1)}
+                className={`${style.className ?? ''} ${isSel ? 'stroke-[#ec4899]' : ''} ${
+                  navigable ? 'cursor-pointer' : ''
+                }`}
+                fill={style.fill}
+                strokeWidth={isSel ? 2 : 1}
+                onMouseEnter={showTip}
+                onMouseMove={showTip}
+                onMouseLeave={() => setTip(null)}
+                onClick={navigable ? () => router.push(dayHref(seg.key)) : undefined}
+              />
+              {needsReason && (
+                <g className="pointer-events-none">
+                  {/* radar ping: an expanding, fading ring that reads as "pending" */}
+                  <circle
+                    cx={markX.toFixed(1)}
+                    cy={markY.toFixed(1)}
+                    r={range === 'week' ? 4.5 : 3.2}
+                    className="animate-ping fill-ink/60"
+                    style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+                  />
+                  <circle
+                    cx={markX.toFixed(1)}
+                    cy={markY.toFixed(1)}
+                    r={range === 'week' ? 3 : 2.2}
+                    className="fill-ink"
+                  />
+                </g>
+              )}
+            </g>
           );
         });
       })}
@@ -368,6 +394,13 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
             {item.label}
           </li>
         ))}
+        <li className="flex items-center gap-1.5 text-[11px] text-sub">
+          <span className="relative inline-flex h-3 w-3 items-center justify-center">
+            <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-ink/60" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-ink" />
+          </span>
+          Needs reason
+        </li>
       </ul>
     </div>
   );

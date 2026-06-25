@@ -179,9 +179,12 @@ export default function HabitTracker({
           {GOALS.map((g) => {
             const log = logByGoal.get(g.id);
             const done = log?.done === true;
+            // Done-but-too-late is red, not a real fulfillment, so it still owes
+            // a reason — treat it as unfulfilled for the note requirement.
+            const fail = isLate(selectedDay, log?.done_at ?? null, GOAL_FAIL_HOUR[g.id]);
             const activityTregua = log?.tregua ?? false;
             const tregua = activityTregua || dayTreguaSelected;
-            const ns = noteState(g.id, done, tregua);
+            const ns = noteState(g.id, done && !fail, tregua);
             return (
               <ActivityItem
                 key={g.id}
@@ -190,7 +193,7 @@ export default function HabitTracker({
                 logDate={selectedDay}
                 done={log?.done ?? false}
                 late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
-                fail={isLate(selectedDay, log?.done_at ?? null, GOAL_FAIL_HOUR[g.id])}
+                fail={fail}
                 tregua={activityTregua}
                 dayTregua={dayTreguaSelected}
                 count={periodDoneCount.get(g.id) ?? 0}

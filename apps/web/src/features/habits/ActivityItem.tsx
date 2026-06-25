@@ -159,6 +159,8 @@ export default function ActivityItem({
   // A still-empty required note nags as its own loud card beneath, so the toggle
   // stays usable. Once a note exists it lives only on the card's hover tooltip —
   // no extra card is ever shown.
+  // A too-late day was technically done, so "why not done?" reads wrong there.
+  const reasonPrompt = isFail ? 'Why so late?' : 'Why not done?';
   const mustNag = noteRequired && !hasNote;
   const noteLoud = noteRequired && noteText.trim() === '';
   const showNagCard = !isTregua && !editing && mustNag;
@@ -169,7 +171,7 @@ export default function ActivityItem({
         <div className="min-h-[56px] rounded-xl border border-edge bg-well px-3 py-2">
           <div className="mb-1 flex items-center justify-between gap-2">
             <span className="truncate text-[10px] font-bold uppercase tracking-wide text-sub">
-              {activityTregua ? 'Tregua reason' : noteRequired ? 'Why not done?' : 'Note'} · {label}
+              {activityTregua ? 'Tregua reason' : noteRequired ? reasonPrompt : 'Note'} · {label}
             </span>
             {busy ? (
               <span className="text-[10px] text-sub">saving…</span>
@@ -377,7 +379,7 @@ export default function ActivityItem({
             <span
               className={`text-[10px] font-bold uppercase tracking-wide ${noteLoud ? 'text-bad' : 'text-sub'}`}
             >
-              {noteLoud ? '⚠ Why not done? (required)' : 'Note'}
+              {noteLoud ? `⚠ ${reasonPrompt} (required)` : 'Note'}
             </span>
             {busy ? (
               <span className="text-[10px] text-sub">saving…</span>
