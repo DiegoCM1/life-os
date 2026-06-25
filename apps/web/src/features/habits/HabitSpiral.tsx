@@ -21,8 +21,10 @@ export type SpiralRing = {
   label: string;
   /** date → 0..1 progress (missing = 0) */
   fraction: Map<string, number>;
-  /** dates where the (full) completion was logged after the deadline */
+  /** dates where the (full) completion was logged after the deadline (→ yellow) */
   lateDates?: Set<string>;
+  /** dates where the completion was logged so late it counts as a failure (→ red) */
+  failDates?: Set<string>;
   /** dates excused by a Tregua (activity or whole-day) — rendered purple */
   treguaDates?: Set<string>;
   /** date → saved note, shown in the hover tooltip when present */
@@ -42,13 +44,16 @@ const GREEN_SCALE = ['#1d4732', '#2a8a55', '#3ddc84'];
 const AMBER_SCALE = ['#5a4410', '#c78a14', '#ffb020'];
 // Tregua (excused) cells render solid purple (same --tregua hue)
 const TREGUA_COLOR = '#a855f7';
+// Missed past cells render solid red (same `bad` token) so an unexcused, unmet
+// day reads as a clear failure rather than a faint blank.
+const MISSED_COLOR = '#ff5252';
 
-// Legend: what each cell color means. `dim` cells are missed past days.
+// Legend: what each cell color means.
 const LEGEND: { label: string; color?: string; dim?: boolean }[] = [
   { label: 'Done', color: GREEN_SCALE[2] },
   { label: 'Late', color: AMBER_SCALE[2] },
   { label: 'Tregua', color: TREGUA_COLOR },
-  { label: 'Missed', dim: true },
+  { label: 'Missed', color: MISSED_COLOR },
 ];
 
 function polar(r: number, deg: number): [number, number] {
@@ -144,17 +149,28 @@ function buildSegments(range: Range, today: string, selectedDay: string): Segmen
   });
 }
 
-function cellFill(fill: number, isPast: boolean, isCurrent: boolean, late: boolean, tregua: boolean): {
+function cellFill(
+  fill: number,
+  isPast: boolean,
+  isCurrent: boolean,
+  late: boolean,
+  fail: boolean,
+  tregua: boolean,
+): {
   className?: string;
   fill?: string;
 } {
   if (tregua) return { fill: TREGUA_COLOR };
+  // Done, but logged so late it's a failure → red, even though it's "done".
+  if (fill > 0 && fail) return { fill: MISSED_COLOR };
   if (fill > 0) {
     const scale = late ? AMBER_SCALE : GREEN_SCALE;
     return { fill: scale[fill <= 0.4 ? 0 : fill < 1 ? 1 : 2] };
   }
   if (isCurrent) return { className: 'fill-well stroke-accent/60' };
-  return { className: isPast ? 'fill-edge/50' : 'fill-well stroke-edge' };
+  // A past day that was neither done nor excused is a real miss → red.
+  if (isPast) return { fill: MISSED_COLOR };
+  return { className: 'fill-well stroke-edge' };
 }
 
 /** Friendly cell date for the tooltip. Year cells span a week, so label the start. */
@@ -239,17 +255,20 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
           const a1 = (i + 1) * anglePer - angleGap / 2;
           const isPast = currentIndex >= 0 && i < currentIndex;
           const late = ring.lateDates?.has(seg.key) ?? false;
+          const fail = ring.failDates?.has(seg.key) ?? false;
           const tregua = ring.treguaDates?.has(seg.key) ?? false;
           const fillVal = seg.fillFor(ring.fraction);
-          const style = cellFill(fillVal, isPast, seg.isCurrent, late, tregua);
+          const style = cellFill(fillVal, isPast, seg.isCurrent, late, fail, tregua);
           const isSel = isPastView && seg.isSelected;
           const note = ring.notes?.get(seg.key);
           const status = tregua
             ? 'Tregua'
             : fillVal >= 1
-              ? late
-                ? 'Done · late'
-                : 'Done'
+              ? fail
+                ? 'Done · too late'
+                : late
+                  ? 'Done · late'
+                  : 'Done'
               : fillVal > 0
                 ? 'Partial'
                 : isPast || seg.isCurrent

@@ -2,7 +2,7 @@
 // Tapping a button writes today's check-in and fills one green cell.
 // The spiral switches week/month/year via ?spiral= (server-rendered links).
 
-import { APPLICATIONS_DAILY_TARGET, GOAL_DEADLINE_HOUR, GOALS } from '@/config/goals';
+import { APPLICATIONS_DAILY_TARGET, GOAL_DEADLINE_HOUR, GOAL_FAIL_HOUR, GOALS } from '@/config/goals';
 import type { MonthLog, TodayLog } from '@/lib/api';
 import type { Range } from '@/lib/range';
 import { isLate, isoAddDays, mondayOfWeekMx, nowPartsMx } from '@/lib/time';
@@ -51,12 +51,6 @@ export default function HabitTracker({
         : `${today.slice(0, 8)}01`; // month: from the 1st
   const periodLabel =
     spiralRange === 'week' ? 'this week' : spiralRange === 'year' ? 'this year' : 'this month';
-  const periodDoneCount = new Map<string, number>();
-  for (const log of rangeLogs) {
-    if (log.done && log.log_date >= periodStart) {
-      periodDoneCount.set(log.goal_id, (periodDoneCount.get(log.goal_id) ?? 0) + 1);
-    }
-  }
 
   // Streak per goal: consecutive qualifying days ending today (or yesterday, so a
   // not-yet-logged today doesn't read as broken before the day is over). A day
@@ -66,6 +60,16 @@ export default function HabitTracker({
   const qualifies = (log: MonthLog): boolean =>
     !!log.done &&
     !(onTimeRequired.get(log.goal_id) && isLate(log.log_date, log.done_at, GOAL_DEADLINE_HOUR[log.goal_id]));
+
+  // Per-goal "done" count over the active spiral window. A goal only counts a day
+  // if it qualifies — so wake-up's tally tracks good (on-time) mornings only, in
+  // step with its streak; other goals count any done day.
+  const periodDoneCount = new Map<string, number>();
+  for (const log of rangeLogs) {
+    if (qualifies(log) && log.log_date >= periodStart) {
+      periodDoneCount.set(log.goal_id, (periodDoneCount.get(log.goal_id) ?? 0) + 1);
+    }
+  }
 
   const streakDatesByGoal = new Map<string, Set<string>>();
   const todayLogByGoal = new Map<string, MonthLog>();
@@ -124,14 +128,20 @@ export default function HabitTracker({
   // saved note (done, missed, or Tregua reason) for the hover tooltip.
   for (const g of GOALS) {
     const hour = GOAL_DEADLINE_HOUR[g.id];
+    const failHour = GOAL_FAIL_HOUR[g.id];
     const fraction = new Map<string, number>();
-    const lateDates = new Set<string>();
+    const lateDates = new Set<string>(); // yellow: late but not a failure
+    const failDates = new Set<string>(); // red: done so late it counts as missed
     const notes = new Map<string, string>();
     for (const log of rangeLogs) {
       if (log.goal_id !== g.id) continue;
       if (log.done) {
         fraction.set(log.log_date, 1);
-        if (isLate(log.log_date, log.done_at, hour)) lateDates.add(log.log_date);
+        if (failHour !== undefined && isLate(log.log_date, log.done_at, failHour)) {
+          failDates.add(log.log_date);
+        } else if (isLate(log.log_date, log.done_at, hour)) {
+          lateDates.add(log.log_date);
+        }
       }
       if (log.note && log.note.trim() !== '') notes.set(log.log_date, log.note);
     }
@@ -140,6 +150,7 @@ export default function HabitTracker({
       label: g.label,
       fraction,
       lateDates,
+      failDates,
       treguaDates: treguaDatesByGoal.get(g.id),
       notes,
     });
@@ -179,6 +190,7 @@ export default function HabitTracker({
                 logDate={selectedDay}
                 done={log?.done ?? false}
                 late={isLate(selectedDay, log?.done_at ?? null, GOAL_DEADLINE_HOUR[g.id])}
+                fail={isLate(selectedDay, log?.done_at ?? null, GOAL_FAIL_HOUR[g.id])}
                 tregua={activityTregua}
                 dayTregua={dayTreguaSelected}
                 count={periodDoneCount.get(g.id) ?? 0}

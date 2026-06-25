@@ -27,6 +27,14 @@ export const GOAL_DEADLINE_HOUR: Record<string, number> = {
   interview_prep: 19,
 };
 
+// Per-goal "too late" hour (TIMEZONE, 24h). A completion logged after this hour
+// is a failure (red), not merely late (yellow) — for wake-up, you always wake
+// eventually, so sleeping in past this point counts as a missed good morning.
+// Goals absent here can only be late (yellow), never done-but-red.
+export const GOAL_FAIL_HOUR: Record<string, number> = {
+  wake_up: 10,
+};
+
 // The whole-day "window" closes after the last activity deadline (evening).
 // Past this hour today — or on any past day — an incomplete day requires a
 // day-level note.

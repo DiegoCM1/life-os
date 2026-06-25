@@ -14,6 +14,7 @@ export default function ActivityItem({
   logDate,
   done,
   late,
+  fail = false,
   tregua,
   count,
   countLabel,
@@ -29,6 +30,7 @@ export default function ActivityItem({
   logDate: string;
   done: boolean;
   late: boolean;
+  fail?: boolean; // done, but so late it counts as a failure (red) — e.g. wake-up after 10
   tregua: boolean;
   dayTregua?: boolean; // the whole day is a Tregua → this task is purple regardless of done
   count: number;
@@ -53,7 +55,9 @@ export default function ActivityItem({
 
   const isDone = optimistic ?? done;
   const locked = oneShot && isDone;
-  const isLate = isDone && late;
+  // A failure (red) outranks merely late (yellow): done-but-too-late is red, not yellow.
+  const isFail = isDone && fail;
+  const isLate = isDone && late && !isFail;
   // Per-activity Tregua is mutually exclusive with done; a whole-day Tregua
   // paints everything purple, even already-done tasks (matches the spiral).
   const activityTregua = tregua && !isDone;
@@ -247,33 +251,46 @@ export default function ActivityItem({
           } ${
             isTregua
               ? 'border-tregua bg-tregua-dim'
-              : isLate
-                ? 'border-warn bg-warn-dim'
-                : isDone
-                  ? 'border-good bg-good-dim'
-                  : 'border-edge bg-well'
+              : isFail
+                ? 'border-bad bg-bad-dim'
+                : isLate
+                  ? 'border-warn bg-warn-dim'
+                  : isDone
+                    ? 'border-good bg-good-dim'
+                    : 'border-edge bg-well'
           }`}
         >
           <span
             className={`inline-block h-4 w-4 flex-shrink-0 rounded-[3px] border-2 ${
               isTregua
                 ? 'border-tregua bg-tregua'
-                : isLate
-                  ? 'border-warn bg-warn'
-                  : isDone
-                    ? 'border-good bg-good'
-                    : 'border-sub'
+                : isFail
+                  ? 'border-bad bg-bad'
+                  : isLate
+                    ? 'border-warn bg-warn'
+                    : isDone
+                      ? 'border-good bg-good'
+                      : 'border-sub'
             }`}
           />
           <span className="flex-1">{label}</span>
           {oneShot && isDone && doneAt && (
-            <span className={`text-xs font-semibold tabular-nums ${isLate ? 'text-warn' : 'text-good'}`}>
+            <span
+              className={`text-xs font-semibold tabular-nums ${
+                isFail ? 'text-bad' : isLate ? 'text-warn' : 'text-good'
+              }`}
+            >
               {formatTimeMx(doneAt)}
             </span>
           )}
           {isTregua && (
             <span className="rounded bg-tregua/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tregua">
               Tregua
+            </span>
+          )}
+          {isFail && (
+            <span className="rounded bg-bad/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-bad">
+              Too late
             </span>
           )}
           {isLate && (
