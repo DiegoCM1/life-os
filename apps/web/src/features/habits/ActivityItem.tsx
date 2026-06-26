@@ -62,6 +62,9 @@ export default function ActivityItem({
   // paints everything purple, even already-done tasks (matches the spiral).
   const activityTregua = tregua && !isDone;
   const isTregua = dayTregua || activityTregua;
+  // A closed day that was never done is a miss → red row, matching the spiral.
+  // (noteRequired already means the window closed and it wasn't fulfilled/excused.)
+  const isMissed = !isDone && !isTregua && noteRequired;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -100,21 +103,11 @@ export default function ActivityItem({
     if (!ok) setOptimistic(null);
   }
 
-  async function saveNote() {
-    if (noteText !== initialNote) {
-      setBusy(true);
-      const ok = await put({ note: noteText });
-      setBusy(false);
-      setSaved(ok);
-      if (!ok) return; // keep the editor open so the text isn't lost
-    }
-    // collapse to a preview after editing, unless a required note is still empty
-    if (!(noteRequired && noteText.trim() === '')) setPanel('none');
-  }
-
   // Inline editor uses explicit Okay/cancel instead of blur-to-save, so the card
   // only reverts when you say so.
   async function okNote() {
+    // A required reason can't be saved empty (Enter shouldn't dismiss it either).
+    if (noteRequired && noteText.trim() === '') return;
     if (noteText !== initialNote) {
       setBusy(true);
       const ok = await put({ note: noteText });
@@ -156,22 +149,34 @@ export default function ActivityItem({
   // swapped for the editor until you hit Okay/cancel, then it reverts. For a
   // Tregua, the note field holds the reason, so this edits that too.
   const showInlineEditor = editing;
-  // A still-empty required note nags as its own loud card beneath, so the toggle
-  // stays usable. Once a note exists it lives only on the card's hover tooltip —
-  // no extra card is ever shown.
   // A too-late day was technically done, so "why not done?" reads wrong there.
   const reasonPrompt = isFail ? 'Why so late?' : 'Why not done?';
-  const mustNag = noteRequired && !hasNote;
+  // A required reason with no text yet paints the in-card editor loud (red).
   const noteLoud = noteRequired && noteText.trim() === '';
-  const showNagCard = !isTregua && !editing && mustNag;
+  // No saved reason to fall back to → you can't cancel out empty; the only exit
+  // is to write one (the spiral ping keeps nagging until you do).
+  const mustComplete = noteRequired && !hasNote;
 
   return (
     <div className={`relative flex flex-col gap-2 ${menuOpen ? 'z-20' : ''}`}>
       {showInlineEditor ? (
-        <div className="min-h-[56px] rounded-xl border border-edge bg-well px-3 py-2">
+        <div
+          className={`min-h-[56px] rounded-xl border px-3 py-2 ${
+            noteLoud ? 'animate-pulsebad border-bad bg-bad-dim' : 'border-edge bg-well'
+          }`}
+        >
           <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="truncate text-[10px] font-bold uppercase tracking-wide text-sub">
-              {activityTregua ? 'Tregua reason' : noteRequired ? reasonPrompt : 'Note'} · {label}
+            <span
+              className={`truncate text-[10px] font-bold uppercase tracking-wide ${
+                noteLoud ? 'text-bad' : 'text-sub'
+              }`}
+            >
+              {activityTregua
+                ? 'Tregua reason'
+                : noteRequired
+                  ? `⚠ ${reasonPrompt} (required)`
+                  : 'Note'}{' '}
+              · {label}
             </span>
             {busy ? (
               <span className="text-[10px] text-sub">saving…</span>
@@ -198,12 +203,16 @@ export default function ActivityItem({
             className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
           />
           <div className="mt-1 flex justify-end gap-2">
-            <button onClick={cancelNote} className="text-[10px] text-sub hover:text-ink">
-              cancel
-            </button>
+            {/* No cancel while a reason is mandatory and unwritten — the only way
+                out is to record one. */}
+            {!mustComplete && (
+              <button onClick={cancelNote} className="text-[10px] text-sub hover:text-ink">
+                cancel
+              </button>
+            )}
             <button
               onClick={okNote}
-              disabled={busy}
+              disabled={busy || (noteRequired && noteText.trim() === '')}
               className="rounded bg-good/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-good disabled:opacity-40"
             >
               Okay
@@ -253,7 +262,7 @@ export default function ActivityItem({
           } ${
             isTregua
               ? 'border-tregua bg-tregua-dim'
-              : isFail
+              : isFail || isMissed
                 ? 'border-bad bg-bad-dim'
                 : isLate
                   ? 'border-warn bg-warn-dim'
@@ -268,11 +277,13 @@ export default function ActivityItem({
                 ? 'border-tregua bg-tregua'
                 : isFail
                   ? 'border-bad bg-bad'
-                  : isLate
-                    ? 'border-warn bg-warn'
-                    : isDone
-                      ? 'border-good bg-good'
-                      : 'border-sub'
+                  : isMissed
+                    ? 'border-bad' // missed: red outline, left empty (it wasn't done)
+                    : isLate
+                      ? 'border-warn bg-warn'
+                      : isDone
+                        ? 'border-good bg-good'
+                        : 'border-sub'
             }`}
           />
           <span className="flex-1">{label}</span>
@@ -298,6 +309,11 @@ export default function ActivityItem({
           {isLate && (
             <span className="rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
               Late
+            </span>
+          )}
+          {mustComplete && (
+            <span className="rounded bg-bad/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-bad">
+              ⚠ Reason
             </span>
           )}
           {hasNote && <span className="text-[11px] leading-none" aria-label="has a note">📝</span>}
@@ -335,9 +351,17 @@ export default function ActivityItem({
                   setMenuOpen(false);
                   setPanel('note');
                 }}
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-well"
+                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-well ${
+                  mustComplete ? 'font-semibold text-bad' : ''
+                }`}
               >
-                {activityTregua ? '✎ Edit reason' : hasNote ? '✎ Edit note' : '＋ Add a note'}
+                {activityTregua
+                  ? '✎ Edit reason'
+                  : hasNote
+                    ? '✎ Edit note'
+                    : mustComplete
+                      ? '⚠ Add reason'
+                      : '＋ Add a note'}
               </button>
               {activityTregua ? (
                 <button
@@ -367,40 +391,6 @@ export default function ActivityItem({
         </div>
       </div>
       )}
-
-      {/* below the card: only the loud required-note nag — Tregua & notes live in the card itself */}
-      {showNagCard ? (
-        <div
-          className={`rounded-xl border px-3 py-2 ${
-            noteLoud ? 'animate-pulsebad border-bad bg-bad-dim' : 'border-edge bg-well'
-          }`}
-        >
-          <div className="mb-1 flex items-center justify-between">
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wide ${noteLoud ? 'text-bad' : 'text-sub'}`}
-            >
-              {noteLoud ? `⚠ ${reasonPrompt} (required)` : 'Note'}
-            </span>
-            {busy ? (
-              <span className="text-[10px] text-sub">saving…</span>
-            ) : saved ? (
-              <span className="text-[10px] text-good">saved ✓</span>
-            ) : null}
-          </div>
-          <textarea
-            autoFocus={editing}
-            value={noteText}
-            onChange={(e) => {
-              setNoteText(e.target.value);
-              setSaved(false);
-            }}
-            onBlur={saveNote}
-            rows={2}
-            placeholder="A short reason, so future-you remembers…"
-            className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-sub/60"
-          />
-        </div>
-      ) : null}
 
       {error && <p className="px-1 text-[10px] font-semibold text-bad">{error}</p>}
     </div>
