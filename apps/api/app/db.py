@@ -2,7 +2,7 @@
 
 import asyncpg
 
-from .config import DATABASE_URL
+from .config import settings
 
 _pool: asyncpg.Pool | None = None
 
@@ -10,7 +10,7 @@ _pool: asyncpg.Pool | None = None
 async def open_pool() -> None:
     global _pool
     # Small pool: single-user app, Supabase free-tier connection limits.
-    _pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=4)
+    _pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=4)
 
 
 async def close_pool() -> None:

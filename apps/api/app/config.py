@@ -1,20 +1,40 @@
-"""Environment configuration. All secrets live in Railway env vars, never in code."""
+"""Environment configuration.
 
-import os
+Secrets live in env vars — injected by Railway in production, loaded from a local
+`apps/api/.env` in development. Validated once at import time via pydantic-settings:
+required fields with no default raise a ValidationError naming the missing var,
+so a misconfiguration fails loudly at startup instead of cryptically at first use.
+"""
+
 from datetime import date, datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TIMEZONE = ZoneInfo("America/Mexico_City")
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
-SHARED_SECRET = os.environ.get("SHARED_SECRET", "")
+# config.py lives in apps/api/app/, so the project root is two levels up.
+# Absolute path → the .env loads no matter what cwd the process starts from.
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
-NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
-NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
-# Property names in the Notion applications database (configurable per brief).
-NOTION_DATE_PROP = os.environ.get("NOTION_DATE_PROP", "Date")
-NOTION_STATUS_PROP = os.environ.get("NOTION_STATUS_PROP", "Status")
-NOTION_TIER_PROP = os.environ.get("NOTION_TIER_PROP", "Tier")
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
+
+    # Required — the app cannot function without these. Missing → ValidationError.
+    database_url: str
+    shared_secret: str
+
+    # Optional — Notion integration degrades gracefully when unset.
+    notion_token: str = ""
+    notion_database_id: str = ""
+    notion_date_prop: str = "Date"
+    notion_status_prop: str = "Status"
+    notion_tier_prop: str = "Tier"
+
+
+settings = Settings()
 
 
 def now_mx() -> datetime:

@@ -8,19 +8,19 @@ import secrets
 
 from fastapi import Header, HTTPException
 
-from .config import SHARED_SECRET
+from .config import settings
 
 
 def require_secret(
     x_api_key: str | None = Header(default=None),
     authorization: str | None = Header(default=None),
 ) -> None:
-    if not SHARED_SECRET:
-        raise HTTPException(status_code=500, detail="SHARED_SECRET is not configured")
+    if not settings.shared_secret:
+        raise HTTPException(status_code=500, detail="settings.shared_secret is not configured")
 
     candidate = x_api_key or ""
     if not candidate and authorization and authorization.startswith("Bearer "):
         candidate = authorization.removeprefix("Bearer ")
 
-    if not secrets.compare_digest(candidate, SHARED_SECRET):
+    if not secrets.compare_digest(candidate, settings.shared_secret):
         raise HTTPException(status_code=401, detail="Invalid or missing API secret")
