@@ -28,7 +28,11 @@ create table public.week_review (
 
 alter table public.week_review enable row level security;
 
--- The FastAPI backend is the only writer; this permissive policy lets its role
--- through RLS. (Supabase's anon/authenticated keys still can't reach it.)
+-- The FastAPI backend connects as the `lifeos_api` role. A new table it doesn't
+-- own needs BOTH of these or every write 500s: the table privileges AND a
+-- permissive RLS policy for that role. (This is the full fix behind the day_meta
+-- lesson — the policy alone isn't enough without the grants.)
+grant select, insert, update, delete on public.week_review to lifeos_api;
+
 create policy lifeos_api_all on public.week_review
-  for all using (true) with check (true);
+  for all to lifeos_api using (true) with check (true);
