@@ -10,7 +10,7 @@ export const TIMEZONE = 'America/Mexico_City';
 // through them in order: applications by 9:00, then post + prep by 19:00.
 export const DEADLINES = {
   applications: { hour: 9, label: 'Applications' },
-  evening: { hour: 19, label: 'Post + Interview Prep', goalIds: ['posted', 'interview_prep'] },
+  evening: { hour: 11, label: 'Post + Interview Prep', goalIds: ['posted', 'interview_prep'] },
 };
 
 // How many applications must be in Notion (dated today) before the deadline.

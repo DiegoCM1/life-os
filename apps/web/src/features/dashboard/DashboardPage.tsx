@@ -10,6 +10,7 @@ import { rangeDays, type Range } from '@/lib/range';
 import { isoAddDays, nowPartsMx, parseDay, todayMx } from '@/lib/time';
 import DeadlineCard from '@/features/deadline/DeadlineCard';
 import HabitTracker from '@/features/habits/HabitTracker';
+import VisionCard from '@/features/cycle/VisionCard';
 import TopicCards from '@/features/topics/TopicCards';
 import DayCard from './DayCard';
 import DayNav from './DayNav';
@@ -103,10 +104,7 @@ export default async function DashboardPage({ spiralRange, day }: {
         dayTreguaDates={dayTreguaDates}
       />
 
-      <section className="card flex items-center gap-4 py-3.5">
-        <span className="text-xs uppercase tracking-widest text-sub">Milestone</span>
-        <span>{status.project_milestone ?? '—'}</span>
-      </section>
+      <VisionCard />
 
       <TopicCards rangeLogs={rangeData.logs} today={today} appsCount={apps.today_count} />
     </main>
