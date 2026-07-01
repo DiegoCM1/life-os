@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { DEADLINES, VICTORY_LINES } from '@/config/goals';
 import { nowPartsMx } from '@/lib/time';
+import { rgb } from '@/design/tokens';
 import Typewriter from './Typewriter';
 
 // Two-stage daily deadline card (always in dashboard tz, not device tz):
@@ -11,8 +12,8 @@ import Typewriter from './Typewriter';
 //   victory mode: green + rotating motivational line.
 // While a stage is live the card fades gray → red as its deadline approaches.
 
-const GRAY = [139, 147, 167]; // --sub
-const RED = [255, 82, 82]; // --bad
+const GRAY = rgb.sub; // --sub
+const RED = rgb.bad; // --bad
 
 function lerpColor(t: number): string {
   // t: 1 = lots of time (gray) → 0 = deadline (red)
@@ -67,8 +68,8 @@ export default function DeadlineCard({ todayCount, target, postedDone, prepDone 
   // ---------- victory: both stages cleared ----------
   if (appsDone && eveningDone) {
     return (
-      <section className="card border-good bg-good-dim text-center">
-        <div className="text-4xl font-bold leading-tight text-good">DAY WON</div>
+      <section className="card border-good bg-good-dim text-center shadow-glow-good">
+        <div className="text-4xl font-bold leading-tight text-good text-glow">DAY WON</div>
         <div className="mt-2 min-h-[3.5rem] text-lg italic">
           <Typewriter text={VICTORY_LINES[lineIndex]} />
         </div>
@@ -113,8 +114,8 @@ export default function DeadlineCard({ todayCount, target, postedDone, prepDone 
       style={{ borderColor: color }}
     >
       <div
-        className="text-5xl font-bold leading-tight tabular-nums"
-        style={{ color }}
+        className="readout text-5xl font-bold leading-tight"
+        style={{ color, textShadow: `0 0 14px ${color}66` }}
         suppressHydrationWarning
       >
         {secondsLeft === null ? '–:––:––' : past ? `PAST ${deadlineLabel}` : clock(secondsLeft)}

@@ -1,29 +1,29 @@
 import type { Config } from 'tailwindcss';
+import { palette, fonts, glow } from './src/design/tokens';
 
+// Colors, fonts, and glow shadows all derive from src/design/tokens.ts — the
+// single source of truth. Don't hardcode hex here; edit tokens.ts instead.
 export default {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
-      colors: {
-        bg: '#0b0e14',
-        card: '#131826',
-        edge: '#1f2738',
-        ink: '#e6e9f0',
-        sub: '#8b93a7',
-        accent: '#4f8cff',
-        good: '#3ddc84',
-        bad: '#ff5252',
-        warn: '#ffb020',
-        tregua: '#a855f7',
-        'good-dim': '#10231a',
-        'bad-dim': '#2a1216',
-        'warn-dim': '#2a2107',
-        'tregua-dim': '#1d1033',
-        well: '#0e1320',
+      colors: { ...palette },
+      fontFamily: {
+        mono: fonts.mono.split(',').map((f) => f.trim()),
+        sans: fonts.sans.split(',').map((f) => f.trim()),
+      },
+      boxShadow: {
+        glow: glow(palette.accent),
+        'glow-accent': glow(palette.accent),
+        'glow-good': glow(palette.good),
+        'glow-bad': glow(palette.bad),
+        'glow-warn': glow(palette.warn),
+        'glow-tregua': glow(palette.tregua),
       },
       keyframes: {
         pulsebad: {
-          '50%': { backgroundColor: '#3a161c' },
+          // Flash brighter than the resting bad-dim background so the pulse reads.
+          '50%': { backgroundColor: '#3a1620' },
         },
         blink: {
           '0%, 49%': { opacity: '1' },

@@ -26,7 +26,7 @@ export default function Typewriter({ text, speed = 35 }: { text: string; speed?:
   return (
     <span suppressHydrationWarning>
       {display}
-      <span className={`text-good ${done ? 'animate-blink' : ''}`}>▌</span>
+      <span className={`text-accent text-glow ${done ? 'animate-blink' : ''}`}>▌</span>
     </span>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button, Cursor, Input, Panel } from '@/components/ui';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -20,21 +21,30 @@ export default function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <form onSubmit={submit} className="card flex w-[min(320px,90vw)] flex-col gap-4 text-center">
-        <h1 className="text-2xl font-bold">Life Dashboard</h1>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => { setPassword(e.target.value); setError(false); }}
-          placeholder="Password"
-          autoFocus
-          className="rounded-xl border border-edge bg-well px-4 py-3 text-ink outline-none focus:border-accent"
-        />
-        {error && <p className="text-sm text-bad">Wrong password</p>}
-        <button type="submit" className="rounded-xl bg-accent py-3 font-semibold">
-          Enter
-        </button>
+    <main className="flex min-h-screen items-center justify-center p-5">
+      <form onSubmit={submit} className="w-[min(360px,92vw)]">
+        <Panel header="life-os // auth">
+          <p className="mb-4 text-sm text-sub">
+            <span className="text-accent text-glow">$</span> login --user diego
+            <Cursor />
+          </p>
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-sub">
+            password
+          </label>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); setError(false); }}
+            placeholder="••••••••"
+            autoFocus
+          />
+          {error && (
+            <p className="mt-2 text-sm text-bad text-glow-bad">✗ access denied — wrong password</p>
+          )}
+          <Button type="submit" variant="primary" className="mt-4 w-full py-3">
+            Enter ▸
+          </Button>
+        </Panel>
       </form>
     </main>
   );

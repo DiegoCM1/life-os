@@ -12,6 +12,7 @@ import DeadlineCard from '@/features/deadline/DeadlineCard';
 import HabitTracker from '@/features/habits/HabitTracker';
 import VisionCard from '@/features/cycle/VisionCard';
 import TopicCards from '@/features/topics/TopicCards';
+import { Cursor } from '@/components/ui';
 import DayCard from './DayCard';
 import DayNav from './DayNav';
 import RefreshTimer from './RefreshTimer';
@@ -69,7 +70,11 @@ export default async function DashboardPage({ spiralRange, day }: {
       <RefreshTimer />
 
       <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">{isToday ? 'Today' : 'Past day'}</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold">
+          <span className="text-accent">$</span>
+          {isToday ? 'today' : 'past_day'}
+          <Cursor />
+        </h1>
         <DayNav selectedDay={selectedDay} today={today} spiralRange={spiralRange} />
       </header>
 

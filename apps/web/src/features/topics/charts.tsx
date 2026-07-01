@@ -17,13 +17,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { alpha, palette } from '@/design/tokens';
 
+// All chart colors derive from the token palette (single source of truth).
 const COLORS = {
-  good: '#3ddc84',
-  accent: '#4f8cff',
-  sub: '#8b93a7',
-  grid: '#1f2738',
-  tooltipBg: '#131826',
+  good: palette.good,
+  accent: palette.accent,
+  sub: palette.sub,
+  grid: palette.edge,
+  tooltipBg: palette.card,
 };
 
 const axisProps = {
@@ -38,10 +40,10 @@ const tooltipProps = {
     background: COLORS.tooltipBg,
     border: `1px solid ${COLORS.grid}`,
     borderRadius: 10,
-    color: '#e6e9f0',
+    color: palette.ink,
     fontSize: 12,
   },
-  cursor: { fill: 'rgba(79, 140, 255, 0.08)' },
+  cursor: { fill: alpha(palette.accent, '14') },
 } as const;
 
 /** Generic bar chart over labeled buckets (weeks, months, weekdays…). */
@@ -116,7 +118,7 @@ export function VolumeArea({ data, name }: {
           dataKey="value"
           name={name}
           stroke={COLORS.accent}
-          fill="rgba(79, 140, 255, 0.18)"
+          fill={alpha(palette.accent, '2e')}
           strokeWidth={2}
         />
       </AreaChart>

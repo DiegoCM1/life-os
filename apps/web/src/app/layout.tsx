@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import { JetBrains_Mono } from 'next/font/google';
+import { cssVars, palette } from '@/design/tokens';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -7,14 +9,25 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0b0e14',
+  themeColor: palette.bg,
 };
 
-// System font stack, no web fonts: keeps the page light for the 4GB kiosk.
+// JetBrains Mono, self-hosted by next/font (no external request — kiosk-safe).
+// Exposed as --font-mono, which src/design/tokens.ts references in the mono stack.
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+});
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className={mono.variable}>
+      <head>
+        {/* One :root block shared by CSS effects, SVG/canvas, and Tailwind. */}
+        <style dangerouslySetInnerHTML={{ __html: cssVars() }} />
+      </head>
+      <body className="scanlines crt">{children}</body>
     </html>
   );
 }

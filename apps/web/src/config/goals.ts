@@ -4,6 +4,8 @@
 // a label is free, changing an id orphans its history.
 // ============================================================================
 
+import { palette } from '@/design/tokens';
+
 export const TIMEZONE = 'America/Mexico_City';
 
 // The day's two deadlines (hours in TIMEZONE, 24h clock). The top card walks
@@ -25,6 +27,7 @@ export const GOAL_DEADLINE_HOUR: Record<string, number> = {
   wake_up: 8,
   posted: 19,
   interview_prep: 19,
+  calisthenics: 21, // 9:00 PM daily
 };
 
 // Per-goal "too late" hour (TIMEZONE, 24h). A completion logged after this hour
@@ -137,11 +140,11 @@ export const TOPICS: TopicDef[] = [
 // How the Notion Status options group into pipeline sections on the
 // applications page. Statuses not listed here still render, under "Other".
 export const APPLICATION_STATUS_GROUPS = [
-  { label: 'Active', accent: '#4f8cff', statuses: ['Applied', 'Interviewing'] },
-  { label: 'Offers', accent: '#3ddc84', statuses: ['Offer'] },
+  { label: 'Active', accent: palette.marker, statuses: ['Applied', 'Interviewing'] },
+  { label: 'Offers', accent: palette.good, statuses: ['Offer'] },
   {
     label: 'Dead',
-    accent: '#ff5252',
+    accent: palette.bad,
     statuses: [
       'Dead - Application rejected',
       'Dead - After HR',

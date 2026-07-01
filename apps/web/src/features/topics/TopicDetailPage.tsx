@@ -13,6 +13,7 @@ import {
   getLogs,
 } from '@/lib/api';
 import { isoAddDays, todayMx } from '@/lib/time';
+import { palette } from '@/design/tokens';
 import RefreshTimer from '@/features/dashboard/RefreshTimer';
 import { CountBars, TrendLine, VolumeArea } from './charts';
 import Heatmap from './Heatmap';
@@ -122,7 +123,7 @@ async function HabitDetail({ topicId, today, range }: {
         </ChartCard>
 
         <ChartCard title="Weekday pattern — when do you show up?">
-          <CountBars data={weekdayTotals(today, days, valueOf)} name="times done" color="#4f8cff" />
+          <CountBars data={weekdayTotals(today, days, valueOf)} name="times done" color={palette.accent} />
         </ChartCard>
       </div>
     </>
@@ -172,7 +173,7 @@ async function ApplicationsDetail({ today, range }: { today: string; range: Rang
 
       <ChartCard title="Volume over time">
         {range === 'year' ? (
-          <CountBars data={monthlyTotals(today, days, valueOf)} name="applications" color="#4f8cff" />
+          <CountBars data={monthlyTotals(today, days, valueOf)} name="applications" color={palette.accent} />
         ) : (
           <VolumeArea data={dailySeries(today, days, valueOf)} name="applications" />
         )}
@@ -187,12 +188,12 @@ async function ApplicationsDetail({ today, range }: { today: string; range: Rang
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {range !== 'week' && (
           <ChartCard title="Momentum (sent per rolling week)">
-            <TrendLine data={rolling7(today, days, valueOf)} name="last 7 days" color="#4f8cff" />
+            <TrendLine data={rolling7(today, days, valueOf)} name="last 7 days" color={palette.accent} />
           </ChartCard>
         )}
 
         <ChartCard title="Weekday pattern — when do you apply?">
-          <CountBars data={weekdayTotals(today, days, valueOf)} name="applications" color="#4f8cff" />
+          <CountBars data={weekdayTotals(today, days, valueOf)} name="applications" color={palette.accent} />
         </ChartCard>
       </div>
 
@@ -281,7 +282,7 @@ function PipelineSection({ statusCounts, tierCounts, total }: {
               <div className="mb-2 text-sm font-semibold text-sub">Other</div>
               <div className="flex flex-col gap-1.5">
                 {ungrouped.map(([status, count]) => (
-                  <StatusRow key={status} label={status} count={count} max={max} color="#8b93a7" />
+                  <StatusRow key={status} label={status} count={count} max={max} color={palette.sub} />
                 ))}
               </div>
             </div>
@@ -301,7 +302,7 @@ function PipelineSection({ statusCounts, tierCounts, total }: {
                   label={tier}
                   count={count}
                   max={Math.max(1, ...Object.values(tierCounts))}
-                  color="#4f8cff"
+                  color={palette.accent}
                 />
               ))}
           </div>

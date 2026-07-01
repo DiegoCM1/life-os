@@ -4,6 +4,7 @@
 // fading columns. Server-rendered inline SVG, zero client JS.
 
 import { isoAddDays } from '@/lib/time';
+import { palette, scales } from '@/design/tokens';
 import { dateWindow, weekdayIndex } from './stats';
 
 const CELL = 13;
@@ -13,7 +14,7 @@ const TOP_PAD = 16; // month labels
 const ROW_LABELS = ['Mon', 'Wed', 'Fri'];
 
 // well → dim → mid → bright (intensity buckets above zero)
-const SCALE = ['#0e1320', '#1d4732', '#2a8a55', '#3ddc84'];
+const SCALE = scales.heat;
 
 function colorFor(value: number, max: number): string {
   if (value <= 0) return SCALE[0];
@@ -91,7 +92,7 @@ export default function Heatmap({ today, days, valueOf, maxValue = 1 }: {
                   height={CELL}
                   rx={3}
                   fill={colorFor(valueOf(cell.date), maxValue)}
-                  stroke={cell.date === today ? '#4f8cff' : 'none'}
+                  stroke={cell.date === today ? palette.accent : 'none'}
                   strokeWidth={cell.date === today ? 1.5 : 0}
                 >
                   <title>{`${cell.date}: ${Math.round(valueOf(cell.date))}`}</title>

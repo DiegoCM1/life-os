@@ -2,26 +2,92 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark always-on kiosk theme; system font stack keeps the page light. */
+/* PHOSPHOR terminal theme. Palette + fonts come from src/design/tokens.ts (via
+   tailwind.config.ts and the cssVars() block injected in layout.tsx). */
 @layer base {
   body {
     @apply bg-bg text-ink antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
-      Arial, sans-serif;
+    font-family: theme('fontFamily.mono');
+    /* Selection reads like a highlighted terminal region. */
+  }
+  ::selection {
+    @apply bg-accent text-bg;
   }
 }
 
 @layer components {
+  /* Panels. Kept as a class so un-migrated markup still looks right; new code
+     should prefer <Panel>. */
   .card {
-    @apply rounded-2xl border border-edge bg-card p-5;
+    @apply rounded-xl border border-edge bg-card p-5;
   }
   .section-title {
-    @apply mb-3 text-xs font-semibold uppercase tracking-widest text-sub;
+    @apply mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-sub;
   }
   .stat-num {
     @apply text-3xl font-bold tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  /* Instrument-readout numerals: tight, tabular, gauge-like. */
+  .readout {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
   .stat-label {
     @apply text-xs text-sub;
+  }
+}
+
+@layer utilities {
+  /* Phosphor glow — text + box shadow in a hue. Subtle by design. */
+  .glow {
+    box-shadow: 0 0 8px rgba(77, 255, 160, 0.33);
+  }
+  .text-glow {
+    text-shadow: 0 0 8px rgba(77, 255, 160, 0.45);
+  }
+  .text-glow-bad {
+    text-shadow: 0 0 8px rgba(255, 92, 87, 0.45);
+  }
+  .text-glow-warn {
+    text-shadow: 0 0 8px rgba(255, 194, 51, 0.4);
+  }
+  .text-glow-tregua {
+    text-shadow: 0 0 8px rgba(176, 108, 255, 0.4);
+  }
+
+  /* Faint static scanline overlay. No animation → kiosk-safe, no burn-in risk. */
+  .scanlines::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, var(--scanline-opacity, 0.05)) 2px,
+      rgba(0, 0, 0, var(--scanline-opacity, 0.05)) var(--scanline-height, 3px)
+    );
+  }
+
+  /* CRT vignette: subtle edge darkening so the screen reads like a monitor,
+     not flat black. Static single paint — negligible cost. */
+  .crt::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    pointer-events: none;
+    background: radial-gradient(120% 120% at 50% 38%, transparent 58%, rgba(0, 0, 0, 0.38) 100%);
+  }
+}
+
+/* Honor reduced-motion: kill the cursor blink for users who opt out. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-blink,
+  .animate-pulsebad {
+    animation: none !important;
   }
 }

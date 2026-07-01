@@ -14,6 +14,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Range } from '@/lib/range';
+import { palette, scales } from '@/design/tokens';
 import { isoAddDays, mondayOfWeekMx } from '@/lib/time';
 
 export type SpiralRing = {
@@ -38,15 +39,15 @@ const OUTER_R = 246;
 const LABEL_R = 262;
 const RING_GAP = 3;
 
-// empty → dim → mid → full progress
-const GREEN_SCALE = ['#1d4732', '#2a8a55', '#3ddc84'];
+// empty → dim → mid → full progress (all from the token palette)
+const GREEN_SCALE = scales.green;
 // late completions render amber instead of green (same --warn hue)
-const AMBER_SCALE = ['#5a4410', '#c78a14', '#ffb020'];
+const AMBER_SCALE = scales.amber;
 // Tregua (excused) cells render solid purple (same --tregua hue)
-const TREGUA_COLOR = '#a855f7';
+const TREGUA_COLOR = palette.tregua;
 // Missed past cells render solid red (same `bad` token) so an unexcused, unmet
 // day reads as a clear failure rather than a faint blank.
-const MISSED_COLOR = '#ff5252';
+const MISSED_COLOR = palette.bad;
 
 // Legend: what each cell color means.
 const LEGEND: { label: string; color?: string; dim?: boolean }[] = [
@@ -209,7 +210,7 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
   const angleGap = Math.min(1.6, anglePer * 0.15);
   const ringW = (OUTER_R - INNER_R) / rings.length - RING_GAP;
   const currentIndex = segments.findIndex((s) => s.isCurrent);
-  // Pink marker for a past day under review (today keeps its blue marker).
+  // Cyan marker for a past day under review (today keeps its green marker).
   const isPastView = selectedDay < today;
   const selectedIndex = isPastView ? segments.findIndex((s) => s.isSelected) : -1;
 
@@ -239,11 +240,11 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
         />
       )}
 
-      {/* selected past-day wedge highlight (pink) */}
+      {/* selected past-day wedge highlight (cyan marker) */}
       {selectedIndex >= 0 && (
         <path
           d={cellPath(INNER_R - 6, OUTER_R + 6, selectedIndex * anglePer, (selectedIndex + 1) * anglePer)}
-          className="fill-[#ec4899]/15"
+          className="fill-marker/15"
         />
       )}
 
@@ -299,7 +300,7 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
             <g key={`${ring.id}-${seg.key}`}>
               <path
                 d={cellPath(r0, r1, a0, a1)}
-                className={`${style.className ?? ''} ${isSel ? 'stroke-[#ec4899]' : ''} ${
+                className={`${style.className ?? ''} ${isSel ? 'stroke-marker' : ''} ${
                   navigable ? 'cursor-pointer' : ''
                 }`}
                 fill={style.fill}
@@ -345,7 +346,7 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
             dominantBaseline="central"
             className={`tabular-nums ${range === 'month' ? 'text-[10px]' : 'text-[11px]'} ${
               isPastView && seg.isSelected
-                ? 'fill-[#ec4899] font-bold'
+                ? 'fill-marker font-bold'
                 : seg.isCurrent
                   ? 'fill-accent font-bold'
                   : 'fill-sub'
@@ -357,7 +358,7 @@ export default function HabitSpiral({ rings, today, range, selectedDay }: {
       })}
 
       {/* center summary */}
-      <text x={C} y={C - 6} textAnchor="middle" className="fill-ink text-2xl font-bold tabular-nums">
+      <text x={C} y={C - 6} textAnchor="middle" className="readout fill-ink text-2xl font-bold">
         {center.big}
       </text>
       <text x={C} y={C + 16} textAnchor="middle" className="fill-sub text-[11px]">
