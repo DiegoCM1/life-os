@@ -1,11 +1,13 @@
 """All API routes. One front door for every writer (web app today, Overseer in v2)."""
 
+import json
 from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from . import ai
 from .auth import require_secret
 from .config import today_mx
 from .db import pool
@@ -137,6 +139,101 @@ async def get_day_meta(
             for r in rows
         ]
     }
+
+
+# ---------- week_review (12 Week Year weekly reviews) ----------
+
+def _week_row(r: Any) -> dict[str, Any]:
+    return {
+        "week_number": r["week_number"],
+        "week_start": r["week_start"].isoformat() if r["week_start"] is not None else None,
+        "exec_score": float(r["exec_score"]) if r["exec_score"] is not None else None,
+        "sleep_avg": float(r["sleep_avg"]) if r["sleep_avg"] is not None else None,
+        # answers is jsonb; asyncpg hands it back as text, so decode it.
+        "answers": json.loads(r["answers"]) if r["answers"] else {},
+        "ai_summary": r["ai_summary"],
+        "reviewed": r["reviewed"],
+    }
+
+
+@router.get("/weeks")
+async def get_weeks() -> dict[str, Any]:
+    rows = await pool().fetch(
+        """
+        select week_number, week_start, exec_score, sleep_avg, answers, ai_summary, reviewed
+        from week_review order by week_number
+        """
+    )
+    return {"weeks": [_week_row(r) for r in rows]}
+
+
+class WeekReviewPut(BaseModel):
+    week_number: int = Field(ge=1, le=52)
+    week_start: date | None = None
+    exec_score: float | None = Field(default=None, ge=0, le=100)
+    sleep_avg: float | None = Field(default=None, ge=0, le=24)
+    answers: dict[str, str] | None = None
+    reviewed: bool | None = None
+
+
+@router.put("/weeks")
+async def put_week(body: WeekReviewPut) -> dict[str, Any]:
+    # A field left null in the request is left untouched (coalesce). answers, when
+    # provided, replaces the stored map wholesale (the form always sends the full set).
+    answers = json.dumps(body.answers) if body.answers is not None else None
+    row = await pool().fetchrow(
+        """
+        insert into week_review (week_number, week_start, exec_score, sleep_avg, answers, reviewed)
+        values ($1, $2, $3, $4, coalesce($5::jsonb, '{}'::jsonb), coalesce($6, false))
+        on conflict (week_number) do update set
+          week_start = coalesce($2, week_review.week_start),
+          exec_score = coalesce($3, week_review.exec_score),
+          sleep_avg = coalesce($4, week_review.sleep_avg),
+          answers = coalesce($5::jsonb, week_review.answers),
+          reviewed = coalesce($6, week_review.reviewed),
+          updated_at = now()
+        returning week_number, week_start, exec_score, sleep_avg, answers, ai_summary, reviewed
+        """,
+        body.week_number, body.week_start, body.exec_score, body.sleep_avg, answers, body.reviewed,
+    )
+    return _week_row(row)
+
+
+class WeekSummaryGenerate(BaseModel):
+    week_number: int = Field(ge=1, le=52)
+
+
+@router.post("/weeks/generate-summary")
+async def generate_week_summary(body: WeekSummaryGenerate) -> dict[str, Any]:
+    # Generate the frozen per-week AI note via OpenRouter, then store it. The week
+    # must already exist (reviewed). Prior weeks are passed as context only. 503
+    # when AI is unconfigured/unavailable so the caller can keep what it had.
+    rows = await pool().fetch(
+        """
+        select week_number, week_start, exec_score, sleep_avg, answers, ai_summary, reviewed
+        from week_review where week_number <= $1 order by week_number
+        """,
+        body.week_number,
+    )
+    weeks = [_week_row(r) for r in rows]
+    target = next((w for w in weeks if w["week_number"] == body.week_number), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Week not found — save the review first")
+
+    prior = [w for w in weeks if w["week_number"] < body.week_number]
+    summary = await ai.week_summary(target, prior)
+    if summary is None:
+        raise HTTPException(status_code=503, detail="AI unavailable (OpenRouter unconfigured or down)")
+
+    row = await pool().fetchrow(
+        """
+        update week_review set ai_summary = $2, updated_at = now()
+        where week_number = $1
+        returning week_number, week_start, exec_score, sleep_avg, answers, ai_summary, reviewed
+        """,
+        body.week_number, summary,
+    )
+    return _week_row(row)
 
 
 # ---------- status fields ----------

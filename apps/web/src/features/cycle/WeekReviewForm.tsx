@@ -1,28 +1,57 @@
 'use client';
 
 // The reflection half of the weekly review, laid out in two columns to cut the
-// scroll. Editable for the current week (textareas / a Yes-No toggle + a mock
-// Save); read-only for past weeks (renders saved answers). MOCK: Save just
-// flips a local flag — no persistence until the week_review table + PUT route
-// exist. The `exercise` prompt is yes/no, so it renders as a toggle, not a box.
+// scroll. Editable for the current week (textareas / a Yes-No toggle + Save);
+// read-only for past weeks (renders saved answers). Save persists the answers to
+// week_review via PUT /api/week. The `exercise` prompt is yes/no, so it renders
+// as a toggle, not a box.
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { ReflectionPrompt } from '@/config/cycle';
 
 const YES_NO_ID = 'exercise';
 
-export default function WeekReviewForm({ prompts, initial, editable, week }: {
+export default function WeekReviewForm({ prompts, initial, editable, week, weekStart }: {
   prompts: ReflectionPrompt[];
   initial: Record<string, string>;
   editable: boolean;
   week: number;
+  weekStart: string;
 }) {
+  const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, string>>(initial);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
 
   const set = (id: string, v: string) => {
     setAnswers((a) => ({ ...a, [id]: v }));
     setSaved(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError(false);
+    try {
+      const res = await fetch('/api/week', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          week_number: week,
+          week_start: weekStart,
+          answers,
+          reviewed: true,
+        }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      setSaved(true);
+      router.refresh(); // re-fetch the server component so the persisted state shows
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -79,12 +108,14 @@ export default function WeekReviewForm({ prompts, initial, editable, week }: {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setSaved(true)}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
+            onClick={save}
+            disabled={saving}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            Save week
+            {saving ? 'Saving…' : 'Save week'}
           </button>
-          {saved && <span className="text-sm text-good">Saved (mock) ✓</span>}
+          {saved && <span className="text-sm text-good">Saved ✓</span>}
+          {error && <span className="text-sm text-bad">Save failed — try again</span>}
         </div>
       )}
     </section>

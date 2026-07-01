@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     notion_status_prop: str = "Status"
     notion_tier_prop: str = "Tier"
 
+    # Optional — AI weekly analysis via OpenRouter (OpenAI-compatible API). When
+    # openrouter_api_key is unset, summary generation degrades gracefully (returns
+    # None) and the review screen keeps whatever it already had. Set the key in
+    # apps/api/.env; the model can be any OpenRouter slug.
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "google/gemma-4-31b-it"
+
 
 settings = Settings()
 

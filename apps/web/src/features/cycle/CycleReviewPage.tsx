@@ -6,6 +6,7 @@
 
 import Link from 'next/link';
 import { CYCLE, REFLECTION_PROMPTS, VISION } from '@/config/cycle';
+import { getWeeks } from '@/lib/api';
 import { isoAddDays } from '@/lib/time';
 import RefreshTimer from '@/features/dashboard/RefreshTimer';
 import WeekReviewForm from './WeekReviewForm';
@@ -182,7 +183,7 @@ const DOT: Record<WeekColor, string> = {
   red: 'bg-bad',
 };
 
-export default function CycleReviewPage({ week }: { week?: string }) {
+export default async function CycleReviewPage({ week }: { week?: string }) {
   const { currentWeek, lengthWeeks } = CYCLE;
 
   // Focused week: clamp to a real, already-happened week; default to current.
@@ -192,8 +193,24 @@ export default function CycleReviewPage({ week }: { week?: string }) {
       ? requested
       : currentWeek;
 
-  const data = MOCK_WEEKS[focused];
-  const color = data ? execColor(data.exec) : null;
+  // Persisted reviews overlay the mock scaffold: user-authored answers/sleep and
+  // (later) the AI note come from the DB; the scorecard numbers are still mock
+  // until the daily_log + Notion roll-up lands.
+  const { weeks } = await getWeeks();
+  const dbByWeek = new Map(weeks.map((w) => [w.week_number, w]));
+  const execOf = (n: number): number | null =>
+    dbByWeek.get(n)?.exec_score ?? MOCK_WEEKS[n]?.exec ?? null;
+
+  const mock = MOCK_WEEKS[focused];
+  const db = dbByWeek.get(focused);
+  const hasWeek = Boolean(mock) || Boolean(db);
+  const execScore = execOf(focused);
+  const color = execScore != null ? execColor(execScore) : null;
+  const sleep = db?.sleep_avg ?? mock?.sleep ?? null;
+  const scorecard = mock?.scorecard ?? null;
+  const aiSummary = db?.ai_summary ?? mock?.aiSummary ?? null;
+  const answers = db && Object.keys(db.answers).length > 0 ? db.answers : mock?.answers ?? {};
+  const weekStart = weekRange(CYCLE.startDate, focused).start;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-5">
@@ -210,11 +227,11 @@ export default function CycleReviewPage({ week }: { week?: string }) {
         <h2 className="section-title">The cycle</h2>
         <div className="flex gap-1.5">
           {Array.from({ length: lengthWeeks }, (_, i) => i + 1).map((n) => {
-            const wk = MOCK_WEEKS[n];
+            const e = execOf(n);
             const isFuture = n > currentWeek;
             const isSelected = n === focused;
             const range = weekRange(CYCLE.startDate, n);
-            const cellColor = wk ? DIM[execColor(wk.exec)] : 'bg-well text-sub/40';
+            const cellColor = e != null ? DIM[execColor(e)] : 'bg-well text-sub/40';
             const ring = isSelected ? 'ring-2 ring-inset ring-ink' : '';
             const cls = `relative group/cell flex h-9 flex-1 items-center justify-center rounded-md text-xs font-bold ${cellColor} ${ring}`;
             const tip = (
@@ -273,16 +290,16 @@ export default function CycleReviewPage({ week }: { week?: string }) {
             Week {focused} / {lengthWeeks}
             {focused === currentWeek && <span className="ml-2 text-xs text-accent">this week</span>}
           </h2>
-          {data && color && (
+          {execScore != null && color && (
             <span className="text-sm text-sub">
-              exec <span className={`font-semibold tabular-nums ${TEXT[color]}`}>{data.exec}%</span>
+              exec <span className={`font-semibold tabular-nums ${TEXT[color]}`}>{execScore}%</span>
             </span>
           )}
         </div>
 
-        {data ? (
+        {scorecard ? (
           <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3">
-            {data.scorecard.map((m) => {
+            {scorecard.map((m) => {
               const met = m.done >= m.target;
               return (
                 <div key={m.label} className="flex flex-col">
@@ -294,10 +311,12 @@ export default function CycleReviewPage({ week }: { week?: string }) {
                 </div>
               );
             })}
-            <div className="flex flex-col">
-              <span className="stat-label">Sleep avg</span>
-              <span className="text-xl font-bold tabular-nums text-ink">{data.sleep}h</span>
-            </div>
+            {sleep != null && (
+              <div className="flex flex-col">
+                <span className="stat-label">Sleep avg</span>
+                <span className="text-xl font-bold tabular-nums text-ink">{sleep}h</span>
+              </div>
+            )}
           </div>
         ) : (
           <p className="mt-3 text-sm text-sub">This week hasn’t happened yet.</p>
@@ -305,7 +324,7 @@ export default function CycleReviewPage({ week }: { week?: string }) {
       </section>
 
       {/* AI analysis — completed weeks only, read-only, pattern-calling */}
-      {data?.aiSummary && focused !== currentWeek && (
+      {aiSummary && focused !== currentWeek && (
         <section className="card border-accent/40">
           <div className="mb-2 flex items-center gap-2">
             <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
@@ -313,17 +332,18 @@ export default function CycleReviewPage({ week }: { week?: string }) {
             </span>
             <span className="text-xs text-sub">generated at week close</span>
           </div>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink/85">{data.aiSummary}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink/85">{aiSummary}</p>
         </section>
       )}
 
       {/* focused week: reflection */}
-      {data && (
+      {hasWeek && (
         <WeekReviewForm
           prompts={REFLECTION_PROMPTS}
-          initial={data.answers}
+          initial={answers}
           editable={focused === currentWeek}
           week={focused}
+          weekStart={weekStart}
         />
       )}
     </main>

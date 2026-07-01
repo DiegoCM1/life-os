@@ -102,3 +102,17 @@ export const getStatus = () => apiGet<Record<string, string>>('/status', {});
 
 export const getDayMeta = (start: string, end: string) =>
   apiGet<{ days: DayMeta[] }>(`/day-meta?start=${start}&end=${end}`, { days: [] });
+
+export type WeekReview = {
+  week_number: number;
+  week_start: string | null;
+  exec_score: number | null;
+  sleep_avg: number | null;
+  answers: Record<string, string>;
+  ai_summary: string | null;
+  reviewed: boolean;
+};
+
+// Persisted weekly reviews. Falls back to empty so /cycle renders on the mock
+// scaffold even when the backend is briefly unreachable.
+export const getWeeks = () => apiGet<{ weeks: WeekReview[] }>('/weeks', { weeks: [] });
