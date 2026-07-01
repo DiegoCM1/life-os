@@ -18,8 +18,9 @@
 //
 // All content is rendered from config/cycle.ts (the one file to edit). The
 // mock `done`/`currentWeek` values there become live daily_log + Notion
-// roll-ups later. The click target is a no-op until the /week route exists.
+// roll-ups later. Tapping the card opens the weekly-review screen at /cycle.
 
+import Link from 'next/link';
 import { CYCLE, VISION } from '@/config/cycle';
 
 type WeekColor = 'green' | 'yellow' | 'red';
@@ -61,7 +62,10 @@ export default function VisionCard() {
   const overall = worst(paced.map((g) => g.pace));
 
   return (
-    <section className="card cursor-pointer transition-colors hover:border-accent active:border-accent">
+    <Link
+      href="/cycle"
+      className="card block cursor-pointer transition-colors hover:border-accent active:border-accent"
+    >
       {/* north star: the single aspirational vision, static, framing the goals */}
       <div className="mb-3 border-b border-edge pb-3">
         <div className="text-[10px] font-bold uppercase tracking-wide text-sub">1-Year Vision</div>
@@ -126,6 +130,6 @@ export default function VisionCard() {
           );
         })}
       </ul>
-    </section>
+    </Link>
   );
 }

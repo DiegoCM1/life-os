@@ -45,6 +45,48 @@ export type Cycle = {
   goals: CycleGoal[];
 };
 
+export type ReflectionPrompt = { id: string; q: string; hint?: string };
+
+// The weekly-review questions (the WAM — Weekly Accountability Meeting). Config
+// template, edit freely. The shame prompt's audience rotates each week.
+export const REFLECTION_PROMPTS: ReflectionPrompt[] = [
+  {
+    id: 'shipped',
+    q: 'What did I ship this week that has my name on it publicly?',
+    hint: 'Only real artifacts: commits, posts, PRs, deploys, applications. If you can’t link it or screenshot it, it doesn’t count.',
+  },
+  {
+    id: 'bullshit',
+    q: 'Where did I bullshit myself this week?',
+    hint: 'Where did I call something “deep work” when it wasn’t? Where did I dodge the hard task? Name it without filters.',
+  },
+  {
+    id: 'leverage',
+    q: 'Highest-leverage move and biggest waste of time?',
+    hint: 'One of each. Specific. Did my best hours go to what moves the needle?',
+  },
+  {
+    id: 'gap',
+    q: 'How did I close the gap between perceived senior and actual senior?',
+    hint: 'What skill or muscle did I level up? If the answer is “nothing”, that’s a red flag.',
+  },
+  {
+    id: 'shame',
+    q: 'What would I be embarrassed for someone to see?',
+    hint: 'Rotate the audience each week: Daniel / a senior engineer / future self / Shany.',
+  },
+  {
+    id: 'fix',
+    q: 'Single best thing to fix and improve next week?',
+    hint: 'One move.',
+  },
+  {
+    id: 'exercise',
+    q: 'Did I do strength training daily, all week? (the single most important thing)',
+    hint: 'Yes or no. No light shit.',
+  },
+];
+
 export const CYCLE: Cycle = {
   startDate: '2026-05-25',
   lengthWeeks: 12,
