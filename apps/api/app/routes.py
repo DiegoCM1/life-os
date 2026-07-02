@@ -9,8 +9,9 @@ from pydantic import BaseModel, Field
 
 from . import ai
 from .auth import require_secret
-from .config import today_mx
+from .config import now_mx, today_mx
 from .db import pool
+from .goals import GOAL_DEADLINE_HOUR, GOAL_FAIL_HOUR, GOALS, severity
 from .notion import applications_daily, applications_stats, applications_summary
 
 router = APIRouter(dependencies=[Depends(require_secret)])
@@ -93,6 +94,40 @@ async def get_logs(
             for r in rows
         ]
     }
+
+
+# ---------- misses (derived deadline severity, for the Overseer) ----------
+
+@router.get("/misses")
+async def get_misses(target: date | None = Query(default=None, alias="date")) -> dict[str, Any]:
+    """Per-goal deadline severity for a date (defaults to today, TIMEZONE).
+
+    The one endpoint an external watcher polls: it applies the deadline rules in
+    goals.py so callers never duplicate them. `now` is returned so the caller can
+    compute time-past-deadline against this server's authoritative clock.
+    """
+    day = target or today_mx()
+    now = now_mx()
+    log_rows = await pool().fetch(
+        "select goal_id, done, done_at, tregua from daily_log where log_date = $1", day
+    )
+    logs = {r["goal_id"]: r for r in log_rows}
+    dm = await pool().fetchrow("select tregua from day_meta where log_date = $1", day)
+    day_tregua = bool(dm and dm["tregua"])
+
+    goals = []
+    for g in GOALS:
+        log = logs.get(g["id"])
+        goals.append({
+            "goal_id": g["id"],
+            "label": g["label"],
+            "severity": severity(g["id"], log, day_tregua, day, now),
+            "deadline_hour": GOAL_DEADLINE_HOUR.get(g["id"]),
+            "fail_hour": GOAL_FAIL_HOUR.get(g["id"]),
+            "done_at": log["done_at"].isoformat() if log and log["done_at"] is not None else None,
+            "tregua": bool(log and log["tregua"]) or day_tregua,
+        })
+    return {"date": day.isoformat(), "now": now.isoformat(), "goals": goals}
 
 
 # ---------- day_meta (day-level note + whole-day Tregua) ----------
