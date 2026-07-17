@@ -256,8 +256,10 @@ export default function ActivityItem({
       <div className="group relative">
         <button
           onClick={toggle}
-          disabled={locked}
-          className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border py-3 pl-4 pr-9 text-left transition-colors ${
+          // aria-disabled instead of disabled: a disabled button swallows clicks
+          // on its children too, which would kill the ⚠ Reason shortcut below.
+          aria-disabled={locked}
+          className={`flex min-h-[56px] w-full flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden rounded-xl border py-3 pl-4 pr-9 text-left transition-colors ${
             locked ? 'cursor-default' : ''
           } ${
             isTregua
@@ -286,10 +288,10 @@ export default function ActivityItem({
                         : 'border-sub'
             }`}
           />
-          <span className="flex-1">{label}</span>
+          <span className="min-w-0 flex-auto break-words">{label}</span>
           {oneShot && isDone && doneAt && (
             <span
-              className={`text-xs font-semibold tabular-nums ${
+              className={`shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums ${
                 isFail ? 'text-bad' : isLate ? 'text-warn' : 'text-good'
               }`}
             >
@@ -297,32 +299,36 @@ export default function ActivityItem({
             </span>
           )}
           {isTregua && (
-            <span className="rounded bg-tregua/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tregua">
+            <span className="shrink-0 whitespace-nowrap rounded bg-tregua/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tregua">
               Tregua
             </span>
           )}
-          {isFail && (
-            <span className="rounded bg-bad/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-bad">
-              Too late
-            </span>
-          )}
           {isLate && (
-            <span className="rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
+            <span className="shrink-0 whitespace-nowrap rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
               Late
             </span>
           )}
           {mustComplete && (
-            <span className="rounded bg-bad/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-bad">
+            <span
+              onClick={(e) => {
+                // Shortcut into the reason editor without toggling the habit.
+                e.stopPropagation();
+                setMenuOpen(false);
+                setPanel('note');
+              }}
+              title="Add reason"
+              className="shrink-0 cursor-pointer whitespace-nowrap rounded bg-bad/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-bad transition-colors hover:bg-bad/30"
+            >
               ⚠ Reason
             </span>
           )}
-          {hasNote && <span className="text-[11px] leading-none" aria-label="has a note">📝</span>}
+          {hasNote && <span className="shrink-0 text-[11px] leading-none" aria-label="has a note">📝</span>}
           {streak > 0 && (
-            <span className="text-xs font-semibold tabular-nums text-good" title={`${streak}-day streak`}>
+            <span className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-good" title={`${streak}-day streak`}>
               🔥 {streak}
             </span>
           )}
-          <span className="text-xs tabular-nums text-sub">{Math.max(0, displayCount)} {countLabel}</span>
+          <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-sub">{Math.max(0, displayCount)} {countLabel}</span>
         </button>
 
         {/* note revealed on hover (also visible on the spiral cell) */}

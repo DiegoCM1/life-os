@@ -48,6 +48,5 @@ settings = Settings()
 def now_mx() -> datetime:
     return datetime.now(TIMEZONE)
 
-
 def today_mx() -> date:
     return now_mx().date()
