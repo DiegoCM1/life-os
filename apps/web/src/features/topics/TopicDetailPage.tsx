@@ -12,10 +12,11 @@ import {
   getApplicationsStats,
   getLogs,
 } from '@/lib/api';
-import { isoAddDays, todayMx } from '@/lib/time';
+import { formatClock, isoAddDays, todayMx } from '@/lib/time';
 import { palette } from '@/design/tokens';
+import { Panel } from '@/components/ui/Panel';
 import RefreshTimer from '@/features/dashboard/RefreshTimer';
-import { CountBars, TrendLine, VolumeArea } from './charts';
+import { CountBars, TrendLine, VolumeArea, WakeScatter } from './charts';
 import Heatmap from './Heatmap';
 import { rangeDays, type Range } from '@/lib/range';
 import RangeToggle from '@/components/RangeToggle';
@@ -25,6 +26,7 @@ import {
   habitStats,
   monthlyTotals,
   rolling7,
+  wakeStats,
   weekdayTotals,
   weeklyTotals,
 } from './stats';
@@ -69,6 +71,8 @@ export default async function TopicDetailPage({ topicId, range }: {
 
       {topic.kind === 'applications' ? (
         <ApplicationsDetail today={today} range={range} />
+      ) : topic.id === 'wake_up' ? (
+        <WakeUpDetail today={today} range={range} />
       ) : (
         <HabitDetail topicId={topic.id} today={today} range={range} />
       )}
@@ -126,6 +130,78 @@ async function HabitDetail({ topicId, today, range }: {
           <CountBars data={weekdayTotals(today, days, valueOf)} name="times done" color={palette.accent} />
         </ChartCard>
       </div>
+    </>
+  );
+}
+
+// ---------- wake-up (time-of-day consistency, not done/not-done) ----------
+
+async function WakeUpDetail({ today, range }: {
+  today: string;
+  range: Range;
+}) {
+  const days = rangeDays(range);
+  const logsData = await getLogs(isoAddDays(today, -days), today);
+  const stats = wakeStats(logsData.logs);
+
+  if (stats.daysLogged === 0) {
+    return (
+      <section className="card">
+        <p className="text-sub">
+          No wake times recorded in this range yet. This page reads the moment you
+          tap “Wake up early” each morning — once a few days are logged, your rhythm
+          shows up here. (Days logged before wake-time tracking existed won’t appear.)
+        </p>
+      </section>
+    );
+  }
+
+  const weekdayStrip = stats.weekdayMedian;
+
+  return (
+    <>
+      <section className="card flex flex-wrap gap-8">
+        <Stat
+          value={stats.medianMinutes === null ? '–' : formatClock(stats.medianMinutes)}
+          label="typical wake"
+        />
+        <Stat
+          value={stats.stdevMinutes === null ? '–' : `± ${stats.stdevMinutes} min`}
+          label="consistency"
+        />
+        <Stat
+          value={stats.onTimePercent === null ? '–' : `${stats.onTimePercent}%`}
+          label="before 8:00"
+        />
+        <Stat value={stats.daysLogged} label="mornings logged" />
+      </section>
+
+      <Panel variant={stats.message.tone} header="Morning rhythm">
+        <p className="text-sm leading-relaxed text-ink/90">{stats.message.text}</p>
+      </Panel>
+
+      <ChartCard title="Wake time, day by day">
+        <WakeScatter data={stats.samples} />
+      </ChartCard>
+
+      {range !== 'week' && (
+        <ChartCard title="On-time rate per week">
+          <TrendLine data={stats.weeklyOnTime} name="on time" unit="%" yMax={100} />
+        </ChartCard>
+      )}
+
+      <ChartCard title="Which days you sleep in">
+        <div className="grid grid-cols-7 gap-2">
+          {weekdayStrip.map((d) => (
+            <div key={d.label} className="flex flex-col items-center gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-sub">{d.label}</span>
+              <span className="text-sm font-semibold tabular-nums">
+                {d.minutes === null ? '–' : formatClock(d.minutes)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </ChartCard>
     </>
   );
 }

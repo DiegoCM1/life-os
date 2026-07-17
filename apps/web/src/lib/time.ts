@@ -19,6 +19,32 @@ export function nowPartsMx(): { hour: number; minute: number; second: number } {
   return { hour: get('hour') % 24, minute: get('minute'), second: get('second') };
 }
 
+/** Minutes since local midnight (0..1439) for an instant, in TIMEZONE. */
+export function minutesOfDayMx(iso: string): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE,
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return (get('hour') % 24) * 60 + get('minute');
+}
+
+/** "7:32 AM" from minutes-since-midnight. Pure — safe in client components. */
+export function formatClock(minutes: number): string {
+  const h24 = Math.floor(minutes / 60) % 24;
+  const m = Math.round(minutes) % 60;
+  const period = h24 < 12 ? 'AM' : 'PM';
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+/** YYYY-MM-DD of an instant in TIMEZONE — used to spot back-filled days. */
+export function mxDateOf(iso: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(new Date(iso));
+}
+
 /** ISO date shifted by `delta` days (noon UTC base avoids DST edge cases). */
 export function isoAddDays(iso: string, delta: number): string {
   const d = new Date(`${iso}T12:00:00Z`);

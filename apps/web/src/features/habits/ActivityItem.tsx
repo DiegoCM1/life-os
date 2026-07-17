@@ -273,22 +273,26 @@ export default function ActivityItem({
                     : 'border-edge bg-well'
           }`}
         >
-          <span
-            className={`inline-block h-4 w-4 flex-shrink-0 rounded-[3px] border-2 ${
-              isTregua
-                ? 'border-tregua bg-tregua'
-                : isFail
-                  ? 'border-bad bg-bad'
-                  : isMissed
-                    ? 'border-bad' // missed: red outline, left empty (it wasn't done)
-                    : isLate
-                      ? 'border-warn bg-warn'
-                      : isDone
-                        ? 'border-good bg-good'
-                        : 'border-sub'
-            }`}
-          />
-          <span className="min-w-0 flex-auto break-words">{label}</span>
+          {/* checkbox + title travel as one unit so a long title wraps beside
+              the checkbox instead of pushing it onto its own flex line */}
+          <span className="flex min-w-0 flex-auto items-center gap-3">
+            <span
+              className={`inline-block h-4 w-4 flex-shrink-0 rounded-[3px] border-2 ${
+                isTregua
+                  ? 'border-tregua bg-tregua'
+                  : isFail
+                    ? 'border-bad bg-bad'
+                    : isMissed
+                      ? 'border-bad' // missed: red outline, left empty (it wasn't done)
+                      : isLate
+                        ? 'border-warn bg-warn'
+                        : isDone
+                          ? 'border-good bg-good'
+                          : 'border-sub'
+              }`}
+            />
+            <span className="min-w-0 flex-auto break-words">{label}</span>
+          </span>
           {oneShot && isDone && doneAt && (
             <span
               className={`shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums ${

@@ -10,18 +10,24 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { alpha, palette } from '@/design/tokens';
+import { formatClock } from '@/lib/time';
 
 // All chart colors derive from the token palette (single source of truth).
 const COLORS = {
   good: palette.good,
+  bad: palette.bad,
   accent: palette.accent,
   sub: palette.sub,
   grid: palette.edge,
@@ -96,6 +102,61 @@ export function TrendLine({ data, name, color = COLORS.good, unit, yMax, dots = 
           dot={dots ? { r: 3, fill: color } : false}
         />
       </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Per-day wake time (minutes since midnight) with target/fail reference lines.
+ *  Points are colored by band: good (before target), late, fail. */
+export function WakeScatter({ data, target = 480, fail = 600 }: {
+  data: { date: string; minutes: number; band: 'good' | 'late' | 'fail' }[];
+  target?: number;
+  fail?: number;
+}) {
+  const bandColor = { good: palette.good, late: palette.warn, fail: palette.bad };
+  const points = data.map((d) => ({ ...d, day: d.date.slice(5) }));
+  const mins = data.map((d) => d.minutes);
+  const lo = Math.min(target, ...mins);
+  const hi = Math.max(fail, ...mins);
+  const domain = [Math.floor((lo - 30) / 60) * 60, Math.ceil((hi + 30) / 60) * 60];
+  // Thin the category ticks so a full year doesn't crowd the axis.
+  const tickInterval = Math.max(0, Math.floor(points.length / 8));
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <ScatterChart data={points} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
+        <CartesianGrid stroke={COLORS.grid} vertical={false} />
+        <XAxis dataKey="day" type="category" {...axisProps} interval={tickInterval} />
+        <YAxis
+          type="number"
+          dataKey="minutes"
+          domain={domain}
+          tickFormatter={(v) => formatClock(v as number)}
+          {...axisProps}
+          width={64}
+        />
+        <ReferenceLine
+          y={target}
+          stroke={COLORS.good}
+          strokeDasharray="4 3"
+          label={{ value: `${Math.floor(target / 60)}:00 target`, position: 'insideTopRight', fill: COLORS.good, fontSize: 10 }}
+        />
+        <ReferenceLine
+          y={fail}
+          stroke={COLORS.bad}
+          strokeDasharray="4 3"
+          label={{ value: `${Math.floor(fail / 60)}:00`, position: 'insideBottomRight', fill: COLORS.bad, fontSize: 10 }}
+        />
+        <Tooltip
+          {...tooltipProps}
+          formatter={(v) => [formatClock(v as number), 'wake']}
+        />
+        <Scatter dataKey="minutes" name="wake time">
+          {points.map((p, i) => (
+            <Cell key={i} fill={bandColor[p.band]} />
+          ))}
+        </Scatter>
+      </ScatterChart>
     </ResponsiveContainer>
   );
 }
