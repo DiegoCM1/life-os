@@ -23,6 +23,7 @@ import RangeToggle from '@/components/RangeToggle';
 import {
   dailySeries,
   doneDates,
+  habitMessage,
   habitStats,
   monthlyTotals,
   rolling7,
@@ -93,6 +94,22 @@ async function HabitDetail({ topicId, today, range }: {
   const done = doneDates(logs, topicId);
   const valueOf = (date: string) => (done.has(date) ? 1 : 0);
   const stats = habitStats(logs, topicId, today, days);
+  const msg = habitMessage(done, today, days, stats.ratePercent, stats.currentStreak, topicId);
+
+  // Days-done-per-period chart, reused whether or not the weekday chart sits beside it.
+  const daysPerPeriod = (
+    <ChartCard title={range === 'year' ? 'Days done per month' : 'Days done per week'}>
+      <CountBars
+        data={
+          range === 'year'
+            ? monthlyTotals(today, days, valueOf)
+            : weeklyTotals(today, days, valueOf)
+        }
+        name="days done"
+        yMax={range === 'year' ? undefined : 7}
+      />
+    </ChartCard>
+  );
 
   return (
     <>
@@ -102,6 +119,10 @@ async function HabitDetail({ topicId, today, range }: {
         <Stat value={stats.doneInRange} label={`done this ${range}`} />
         <Stat value={`${stats.ratePercent}%`} label="completion rate" />
       </section>
+
+      <Panel variant={msg.tone} header={msg.header}>
+        <p className="text-sm leading-relaxed text-ink/90">{msg.text}</p>
+      </Panel>
 
       <ChartCard title="Every day at a glance">
         <Heatmap today={today} days={days} valueOf={valueOf} />
@@ -113,23 +134,18 @@ async function HabitDetail({ topicId, today, range }: {
         </ChartCard>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <ChartCard title={range === 'year' ? 'Days done per month' : 'Days done per week'}>
-          <CountBars
-            data={
-              range === 'year'
-                ? monthlyTotals(today, days, valueOf)
-                : weeklyTotals(today, days, valueOf)
-            }
-            name="days done"
-            yMax={range === 'year' ? undefined : 7}
-          />
-        </ChartCard>
-
-        <ChartCard title="Weekday pattern — when do you show up?">
-          <CountBars data={weekdayTotals(today, days, valueOf)} name="times done" color={palette.accent} />
-        </ChartCard>
-      </div>
+      {/* Weekday distribution is only meaningful for training (splits / rest days);
+          for daily habits like posting or studying it's just noise, so it's omitted. */}
+      {topicId === 'calisthenics' ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {daysPerPeriod}
+          <ChartCard title="Training days by weekday">
+            <CountBars data={weekdayTotals(today, days, valueOf)} name="sessions" color={palette.accent} />
+          </ChartCard>
+        </div>
+      ) : (
+        daysPerPeriod
+      )}
     </>
   );
 }

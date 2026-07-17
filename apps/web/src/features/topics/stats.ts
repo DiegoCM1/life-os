@@ -73,6 +73,89 @@ export function habitStats(
   };
 }
 
+// ---------- habit verdict message (posted / calisthenics / interview_prep) ----------
+//
+// A rule-based "how am I doing" line from done/not-done only — fully trustworthy, unlike
+// time-of-day, which isn't meaningful for these tap-when-you-remember habits. Consistency
+// band × recent momentum → a toned sentence pair, with wording tuned per habit.
+
+const HABIT_WORDS: Record<string, { verbPast: string; header: string }> = {
+  posted: { verbPast: 'posted', header: 'Posting rhythm' },
+  calisthenics: { verbPast: 'trained', header: 'Training rhythm' },
+  interview_prep: { verbPast: 'studied', header: 'Study rhythm' },
+};
+
+export function habitMessage(
+  done: Set<string>,
+  today: string,
+  days: number,
+  ratePercent: number,
+  currentStreak: number,
+  goalId: string
+): { text: string; tone: 'good' | 'warn' | 'bad' | 'default'; header: string } {
+  const words = HABIT_WORDS[goalId] ?? { verbPast: 'shown up', header: 'Consistency' };
+  const doneCount = dateWindow(today, days).filter((d) => done.has(d)).length;
+
+  if (doneCount < 3) {
+    return {
+      header: words.header,
+      tone: 'default',
+      text: `Only ${doneCount} ${doneCount === 1 ? 'day' : 'days'} logged here yet — build up a couple of weeks and the trend will show.`,
+    };
+  }
+
+  const band = ratePercent >= 80 ? 'strong' : ratePercent >= 50 ? 'shaky' : 'weak';
+
+  // Momentum needs two full weeks to compare; below that, report the band alone.
+  let momentum: 'rising' | 'flat' | 'falling' | null = null;
+  if (days >= 14) {
+    const countBack = (end: string, n: number) => {
+      let c = 0;
+      for (let i = 0; i < n; i++) if (done.has(isoAddDays(end, -i))) c += 1;
+      return c;
+    };
+    const last7 = countBack(today, 7);
+    const prev7 = countBack(isoAddDays(today, -7), 7);
+    momentum = last7 > prev7 ? 'rising' : last7 < prev7 ? 'falling' : 'flat';
+  }
+
+  const tone: 'good' | 'warn' | 'bad' =
+    band === 'strong' && momentum !== 'falling'
+      ? 'good'
+      : band === 'weak' && momentum === 'falling'
+        ? 'bad'
+        : 'warn';
+
+  const first = `You've ${words.verbPast} ${doneCount} of the last ${days} days (${ratePercent}%).`;
+  const streakBit = currentStreak > 1 ? ` ${currentStreak}-day streak going.` : '';
+
+  let second: string;
+  if (band === 'strong') {
+    second =
+      momentum === 'falling'
+        ? `Still strong overall, but it's tailing off this week — don't let it slide.`
+        : momentum === 'rising'
+          ? `A strong, rising rhythm.${streakBit} Keep stacking.`
+          : `Rock-solid consistency.${streakBit} Hold the line.`;
+  } else if (band === 'shaky') {
+    second =
+      momentum === 'rising'
+        ? `It's climbing back — push it to daily and make it stick.`
+        : momentum === 'falling'
+          ? `It's getting patchier. Pick a fixed time and defend it.`
+          : `Too patchy to compound yet. A fixed daily slot is what turns this around.`;
+  } else {
+    second =
+      momentum === 'falling'
+        ? `This is slipping badly. Reset tomorrow with one small, non-negotiable rep.`
+        : momentum === 'rising'
+          ? `Still thin, but moving the right way — protect the next few days.`
+          : `The habit isn't sticking. Shrink it until it's impossible to skip.`;
+  }
+
+  return { header: words.header, tone, text: `${first} ${second}` };
+}
+
 // ---------- wake-time stats (wake_up topic only) ----------
 //
 // wake_up is a habit you always complete, so done/not-done is meaningless. The
