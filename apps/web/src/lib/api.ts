@@ -33,18 +33,33 @@ export type AppsStats = {
   tier_counts: Record<string, number>;
 };
 
-async function apiGet<T>(path: string, fallback: T): Promise<T> {
+// On any read failure we return the caller's empty fallback (the dashboard must
+// still render), but tag it with `_unreachable` and log it — so an outage looks
+// like an outage in the UI + server logs, not like an empty day. Success payloads
+// carry no flag.
+async function apiGet<T extends object>(
+  path: string,
+  fallback: T,
+): Promise<T & { _unreachable?: boolean }> {
   try {
     const res = await fetch(`${API_URL}/api/v1${path}`, {
       headers: { 'X-API-Key': API_SECRET },
       cache: 'no-store',
     });
-    if (!res.ok) return fallback;
+    if (!res.ok) {
+      console.error(`[api] GET ${path} → ${res.status} ${res.statusText}`);
+      return { ...fallback, _unreachable: true };
+    }
     return (await res.json()) as T;
-  } catch {
-    // The dashboard must render even when the backend is briefly unreachable.
-    return fallback;
+  } catch (err) {
+    console.error(`[api] GET ${path} failed:`, err);
+    return { ...fallback, _unreachable: true };
   }
+}
+
+/** True if any of the given read results came back from an unreachable backend. */
+export function anyUnreachable(...results: Array<{ _unreachable?: boolean }>): boolean {
+  return results.some((r) => r?._unreachable === true);
 }
 
 export function apiForward(path: string, method: string, body: unknown): Promise<Response> {

@@ -6,8 +6,9 @@
 
 import Link from 'next/link';
 import { CYCLE, REFLECTION_PROMPTS, VISION } from '@/config/cycle';
-import { getWeeks } from '@/lib/api';
+import { anyUnreachable, getWeeks } from '@/lib/api';
 import { isoAddDays } from '@/lib/time';
+import { BackendBanner } from '@/components/ui/BackendBanner';
 import RefreshTimer from '@/features/dashboard/RefreshTimer';
 import WeekReviewForm from './WeekReviewForm';
 
@@ -196,7 +197,8 @@ export default async function CycleReviewPage({ week }: { week?: string }) {
   // Persisted reviews overlay the mock scaffold: user-authored answers/sleep and
   // (later) the AI note come from the DB; the scorecard numbers are still mock
   // until the daily_log + Notion roll-up lands.
-  const { weeks } = await getWeeks();
+  const weeksData = await getWeeks();
+  const weeks = weeksData.weeks;
   const dbByWeek = new Map(weeks.map((w) => [w.week_number, w]));
   const execOf = (n: number): number | null =>
     dbByWeek.get(n)?.exec_score ?? MOCK_WEEKS[n]?.exec ?? null;
@@ -215,6 +217,8 @@ export default async function CycleReviewPage({ week }: { week?: string }) {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-5">
       <RefreshTimer />
+
+      {anyUnreachable(weeksData) && <BackendBanner />}
 
       <header className="flex flex-wrap items-baseline gap-4">
         <Link href="/" className="text-sub hover:text-ink">← Today</Link>

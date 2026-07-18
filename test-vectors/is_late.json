@@ -1,0 +1,86 @@
+[
+  {
+    "name": "before deadline (07:30 MX, cutoff 08:00) → on time",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-13T13:30:00+00:00",
+    "hour": 8,
+    "expected": false
+  },
+  {
+    "name": "exactly at the hour (08:00:00 MX) → not late (strict >)",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-13T14:00:00+00:00",
+    "hour": 8,
+    "expected": false
+  },
+  {
+    "name": "one minute after (08:01 MX) → late",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-13T14:01:00+00:00",
+    "hour": 8,
+    "expected": true
+  },
+  {
+    "name": "next-day back-fill (tapped 2026-06-14 for 06-13) → late",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-14T12:00:00+00:00",
+    "hour": 8,
+    "expected": true
+  },
+  {
+    "name": "null done_at → never late",
+    "log_date": "2026-06-13",
+    "done_at": null,
+    "hour": 8,
+    "expected": false
+  },
+  {
+    "name": "null hour (no deadline) → never late",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-13T14:01:00+00:00",
+    "hour": null,
+    "expected": false
+  },
+  {
+    "name": "wake_up before fail hour (09:30 MX, fail 10:00) → not a fail",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-13T15:30:00+00:00",
+    "hour": 10,
+    "expected": false
+  },
+  {
+    "name": "wake_up past fail hour (10:15 MX, fail 10:00) → fail",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-13T16:15:00+00:00",
+    "hour": 10,
+    "expected": true
+  },
+  {
+    "name": "posted 18:59 MX (UTC instant rolls to next day) cutoff 19:00 → on time",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-14T00:59:00+00:00",
+    "hour": 19,
+    "expected": false
+  },
+  {
+    "name": "posted 19:30 MX (UTC next day) cutoff 19:00 → late",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-14T01:30:00+00:00",
+    "hour": 19,
+    "expected": true
+  },
+  {
+    "name": "calisthenics exactly 21:00 MX cutoff 21:00 → not late (strict >)",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-14T03:00:00+00:00",
+    "hour": 21,
+    "expected": false
+  },
+  {
+    "name": "same-day 23:59 MX (UTC next day) cutoff 08:00 → late",
+    "log_date": "2026-06-13",
+    "done_at": "2026-06-14T05:59:00+00:00",
+    "hour": 8,
+    "expected": true
+  }
+]

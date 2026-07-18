@@ -76,23 +76,32 @@ export default function ActivityItem({
   }, [menuOpen]);
 
   // Returns true on a confirmed save. On any failure (bad status, parse, or a
-  // dead backend) it sets `error` so the UI can stop pretending it worked.
+  // dead backend) it logs the real status/body and surfaces it in `error`, so the
+  // UI stops pretending it worked and future-you can see what actually broke.
   async function put(body: Record<string, unknown>): Promise<boolean> {
     setError(null);
-    let ok = false;
     try {
       const res = await fetch('/api/log', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ log_date: logDate, goal_id: goalId, ...body }),
       });
-      ok = res.ok;
-    } catch {
-      ok = false;
+      if (res.ok) {
+        startTransition(() => router.refresh());
+        return true;
+      }
+      // The /api/log route forwards { status, body } from the backend; pull the
+      // real reason (FastAPI `detail`, our `error`, or the status text).
+      const detail = await res.json().catch(() => null);
+      const reason = detail?.detail ?? detail?.error ?? res.statusText;
+      console.error('[log] PUT failed', res.status, detail);
+      setError(`Couldn’t save (${res.status}) — ${reason}`);
+    } catch (err) {
+      console.error('[log] PUT threw', err);
+      setError('Couldn’t save — network error');
     }
-    if (!ok) setError('Couldn’t save — try again');
     startTransition(() => router.refresh());
-    return ok;
+    return false;
   }
 
   async function toggle() {

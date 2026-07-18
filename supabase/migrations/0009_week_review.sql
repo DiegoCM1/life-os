@@ -1,3 +1,6 @@
+-- Supabase ledger: 20260701030749_week_review
+-- Verbatim mirror of the applied migration (see README.md).
+--
 -- 12 Week Year — weekly reviews. Single-cycle for now: the plan (vision, goals,
 -- targets, tactics) lives in the web app's config/cycle.ts; this table stores
 -- only what the user authors and what can't be derived from daily_log/Notion:

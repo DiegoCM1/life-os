@@ -8,3 +8,4 @@ export { SegmentedControl, type Segment } from './SegmentedControl';
 export { SectionTitle } from './SectionTitle';
 export { Stat } from './Stat';
 export { Cursor } from './Cursor';
+export { BackendBanner } from './BackendBanner';

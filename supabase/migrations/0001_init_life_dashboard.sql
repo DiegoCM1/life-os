@@ -1,5 +1,8 @@
--- Life Dashboard v1 schema. Already applied to the Supabase project via MCP
--- (migration name: init_life_dashboard). Kept here as the source-of-truth mirror.
+-- Supabase ledger: 20260613000643_init_life_dashboard
+-- Verbatim mirror of the applied migration (see README.md). Applied manually via
+-- the Supabase SQL editor / MCP as the admin role, not `supabase db push`.
+--
+-- Life Dashboard v1 schema.
 -- Single-user; tables are deliberately user_id-free but column sets allow
 -- adding user_id later without rewrites (no composite business keys beyond date+goal).
 
@@ -54,11 +57,9 @@ alter table public.bet enable row level security;
 alter table public.status_field enable row level security;
 
 -- Seed: two bet boards + project milestone strip (placeholder content, edit freely).
--- The applications bet has no goal_id: applications live in Notion, not daily_log,
--- so its streak is the stored current_streak (update via PATCH /bets/{id}).
 insert into public.bet (name, enforcer, rule_summary, stake, reward, goal_id, payout_every_days) values
-  ('Daily applications bet', 'Accountability partner', 'Hit the daily application target before 9:00 AM every weekday or pay the stake.', 50, 100, null, 30),
-  ('Posted bet', 'Accountability partner', 'Post every day; miss a day and the streak resets.', 50, 100, 'posted', 30);
+  ('Daily applications bet', 'Accountability partner', 'Hit the daily application target before 11:00 AM every weekday or pay the stake.', 50, 100, 'applications', 30),
+  ('Calisthenics bet', 'Gym partner', 'Train calisthenics every scheduled day; miss a day and the streak resets.', 50, 100, 'calisthenics', 30);
 
 insert into public.status_field (key, value) values
   ('project_milestone', 'Define current milestone in the dashboard');

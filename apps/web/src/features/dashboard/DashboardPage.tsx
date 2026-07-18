@@ -1,4 +1,5 @@
 import {
+  anyUnreachable,
   getApplications,
   getApplicationsDaily,
   getDayMeta,
@@ -12,7 +13,7 @@ import DeadlineCard from '@/features/deadline/DeadlineCard';
 import HabitTracker from '@/features/habits/HabitTracker';
 import VisionCard from '@/features/cycle/VisionCard';
 import TopicCards from '@/features/topics/TopicCards';
-import { Cursor } from '@/components/ui';
+import { BackendBanner, Cursor } from '@/components/ui';
 import DayCard from './DayCard';
 import DayNav from './DayNav';
 import RefreshTimer from './RefreshTimer';
@@ -65,9 +66,13 @@ export default async function DashboardPage({ spiralRange, day }: {
   const dayClosed = !isToday || nowPartsMx().hour >= DAY_CLOSE_HOUR;
   const dayNoteRequired = dayClosed && !dayComplete && !dayTregua;
 
+  const backendDown = anyUnreachable(rangeData, apps, appsDaily, status, dayMeta);
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-5">
       <RefreshTimer />
+
+      {backendDown && <BackendBanner />}
 
       <header className="flex items-baseline justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold">

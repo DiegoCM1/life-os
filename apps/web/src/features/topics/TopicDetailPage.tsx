@@ -7,6 +7,7 @@ import {
   TOPICS,
 } from '@/config/goals';
 import {
+  anyUnreachable,
   getApplications,
   getApplicationsDaily,
   getApplicationsStats,
@@ -14,6 +15,7 @@ import {
 } from '@/lib/api';
 import { formatClock, isoAddDays, todayMx } from '@/lib/time';
 import { palette } from '@/design/tokens';
+import { BackendBanner } from '@/components/ui/BackendBanner';
 import { Panel } from '@/components/ui/Panel';
 import RefreshTimer from '@/features/dashboard/RefreshTimer';
 import { CountBars, TrendLine, VolumeArea, WakeScatter } from './charts';
@@ -90,6 +92,7 @@ async function HabitDetail({ topicId, today, range }: {
 }) {
   const days = rangeDays(range);
   const logsData = await getLogs(isoAddDays(today, -days), today);
+  if (logsData._unreachable) return <BackendBanner />;
   const logs = logsData.logs;
   const done = doneDates(logs, topicId);
   const valueOf = (date: string) => (done.has(date) ? 1 : 0);
@@ -158,6 +161,7 @@ async function WakeUpDetail({ today, range }: {
 }) {
   const days = rangeDays(range);
   const logsData = await getLogs(isoAddDays(today, -days), today);
+  if (logsData._unreachable) return <BackendBanner />;
   const stats = wakeStats(logsData.logs);
 
   if (stats.daysLogged === 0) {
@@ -231,6 +235,11 @@ async function ApplicationsDetail({ today, range }: { today: string; range: Rang
     getApplications(),
     getApplicationsStats(),
   ]);
+
+  // An outage also yields configured:false (the empty fallback), which would
+  // misrender as "Notion isn't connected". Check unreachability first so the two
+  // are never confused — a reachable configured:false truly means env-unset.
+  if (anyUnreachable(daily, summary, stats)) return <BackendBanner />;
 
   if (!daily.configured && !summary.configured) {
     return (
