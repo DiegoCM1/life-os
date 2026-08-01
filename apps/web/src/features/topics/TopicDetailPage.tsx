@@ -8,8 +8,10 @@ import {
 } from '@/config/goals';
 import {
   anyUnreachable,
+  firstFailure,
   getApplications,
   getApplicationsDaily,
+  getApplicationsInsights,
   getApplicationsStats,
   getLogs,
 } from '@/lib/api';
@@ -19,6 +21,7 @@ import { BackendBanner } from '@/components/ui/BackendBanner';
 import { Panel } from '@/components/ui/Panel';
 import RefreshTimer from '@/features/dashboard/RefreshTimer';
 import { CountBars, TrendLine, VolumeArea, WakeScatter } from './charts';
+import ApplicationInsights from './ApplicationInsights';
 import Heatmap from './Heatmap';
 import { rangeDays, type Range } from '@/lib/range';
 import RangeToggle from '@/components/RangeToggle';
@@ -92,7 +95,7 @@ async function HabitDetail({ topicId, today, range }: {
 }) {
   const days = rangeDays(range);
   const logsData = await getLogs(isoAddDays(today, -days), today);
-  if (logsData._unreachable) return <BackendBanner />;
+  if (logsData._unreachable) return <BackendBanner failure={logsData._failure} />;
   const logs = logsData.logs;
   const done = doneDates(logs, topicId);
   const valueOf = (date: string) => (done.has(date) ? 1 : 0);
@@ -161,7 +164,7 @@ async function WakeUpDetail({ today, range }: {
 }) {
   const days = rangeDays(range);
   const logsData = await getLogs(isoAddDays(today, -days), today);
-  if (logsData._unreachable) return <BackendBanner />;
+  if (logsData._unreachable) return <BackendBanner failure={logsData._failure} />;
   const stats = wakeStats(logsData.logs);
 
   if (stats.daysLogged === 0) {
@@ -230,16 +233,19 @@ async function WakeUpDetail({ today, range }: {
 
 async function ApplicationsDetail({ today, range }: { today: string; range: Range }) {
   const days = rangeDays(range);
-  const [daily, summary, stats] = await Promise.all([
+  const [daily, summary, stats, insights] = await Promise.all([
     getApplicationsDaily(days),
     getApplications(),
     getApplicationsStats(),
+    getApplicationsInsights(),
   ]);
 
   // An outage also yields configured:false (the empty fallback), which would
   // misrender as "Notion isn't connected". Check unreachability first so the two
   // are never confused — a reachable configured:false truly means env-unset.
-  if (anyUnreachable(daily, summary, stats)) return <BackendBanner />;
+  if (anyUnreachable(daily, summary, stats, insights)) {
+    return <BackendBanner failure={firstFailure(daily, summary, stats, insights)} />;
+  }
 
   if (!daily.configured && !summary.configured) {
     return (
@@ -299,6 +305,8 @@ async function ApplicationsDetail({ today, range }: { today: string; range: Rang
       </div>
 
       <PipelineSection statusCounts={stats.status_counts} tierCounts={stats.tier_counts} total={stats.total} />
+
+      <ApplicationInsights insights={insights} />
 
       <p className="text-xs text-sub">
         Day-by-day charts show only applications you sent. Pipeline and conversion

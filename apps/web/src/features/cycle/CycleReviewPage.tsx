@@ -218,7 +218,7 @@ export default async function CycleReviewPage({ week }: { week?: string }) {
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-5">
       <RefreshTimer />
 
-      {anyUnreachable(weeksData) && <BackendBanner />}
+      {anyUnreachable(weeksData) && <BackendBanner failure={weeksData._failure} />}
 
       <header className="flex flex-wrap items-baseline gap-4">
         <Link href="/" className="text-sub hover:text-ink">← Today</Link>

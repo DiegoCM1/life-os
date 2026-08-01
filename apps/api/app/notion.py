@@ -5,7 +5,7 @@ the dashboard's polling doesn't hammer the Notion API (rate limit: ~3 req/s).
 """
 
 import time
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any
 
 import httpx
@@ -144,6 +144,98 @@ async def applications_stats() -> dict[str, Any]:
         "tier_counts": tier_counts,
     }
     _stats_cache.update(at=now, data=result)
+    return result
+
+
+UNSET = "(unset)"
+
+_insights_cache: dict[str, Any] = {"at": 0.0, "data": None}
+
+
+def _segment_of(page: dict[str, Any], prop: str) -> str:
+    """Select value, or the explicit UNSET bucket. Never silently drops a row."""
+    inner = page.get("properties", {}).get(prop, {})
+    value = inner.get("select") or inner.get("status") or {}
+    return value.get("name") or UNSET
+
+
+def _week_start_of(page: dict[str, Any]) -> str | None:
+    """Monday (ISO) of the application's date, for weekly cohorting."""
+    day = _date_of(page)
+    if not day:
+        return None
+    d = date.fromisoformat(day)
+    return (d - timedelta(days=d.weekday())).isoformat()
+
+
+async def applications_insights() -> dict[str, Any]:
+    """Cross-tabs of Notion status against each segment, plus weekly cohorts.
+
+    Returns RAW per-status counts, never derived rates. The mapping from Notion
+    status → funnel stage lives in the web config (`APPLICATION_FUNNEL`) so the
+    two never drift; this endpoint stays a dumb, honest aggregator.
+
+    Weekly cohorts are deliberately keyed by application date, which makes recent
+    weeks right-censored (an application sent 3 days ago has not had time to be
+    ghosted). The UI shades that window — the data itself is not adjusted here.
+    """
+    now = time.monotonic()
+    if _insights_cache["data"] is not None and now - _insights_cache["at"] < DAILY_CACHE_TTL_SECONDS:
+        return _insights_cache["data"]
+
+    if not settings.notion_token or not settings.notion_database_id:
+        return {"configured": False, "total": 0, "status_counts": {},
+                "segments": {}, "weekly": [], "coverage": {}}
+
+    dimensions = {
+        "level": settings.notion_level_prop,
+        "tier": settings.notion_tier_prop,
+        "source": settings.notion_source_prop,
+        "company_type": settings.notion_company_type_prop,
+    }
+    status_counts: dict[str, int] = {}
+    segments: dict[str, dict[str, dict[str, int]]] = {k: {} for k in dimensions}
+    weekly: dict[str, dict[str, int]] = {}
+    coverage: dict[str, int] = {k: 0 for k in dimensions}
+    total = 0
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        cursor: str | None = None
+        while True:
+            body: dict[str, Any] = {"page_size": 100}
+            if cursor:
+                body["start_cursor"] = cursor
+            data = await _query(client, body)
+            for page in data.get("results", []):
+                total += 1
+                status = _select_of(page, settings.notion_status_prop)
+                status_counts[status] = status_counts.get(status, 0) + 1
+
+                for key, prop in dimensions.items():
+                    bucket = _segment_of(page, prop)
+                    if bucket != UNSET:
+                        coverage[key] += 1
+                    row = segments[key].setdefault(bucket, {})
+                    row[status] = row.get(status, 0) + 1
+
+                week = _week_start_of(page)
+                if week:
+                    wrow = weekly.setdefault(week, {})
+                    wrow[status] = wrow.get(status, 0) + 1
+
+            if not data.get("has_more"):
+                break
+            cursor = data.get("next_cursor")
+
+    result = {
+        "configured": True,
+        "total": total,
+        "status_counts": status_counts,
+        "segments": segments,
+        "weekly": [{"week_start": w, "counts": c} for w, c in sorted(weekly.items())],
+        "coverage": coverage,
+    }
+    _insights_cache.update(at=now, data=result)
     return result
 
 

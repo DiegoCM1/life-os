@@ -1,5 +1,6 @@
 import {
   anyUnreachable,
+  firstFailure,
   getApplications,
   getApplicationsDaily,
   getDayMeta,
@@ -72,7 +73,9 @@ export default async function DashboardPage({ spiralRange, day }: {
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-5">
       <RefreshTimer />
 
-      {backendDown && <BackendBanner />}
+      {backendDown && (
+        <BackendBanner failure={firstFailure(rangeData, apps, appsDaily, status, dayMeta)} />
+      )}
 
       <header className="flex items-baseline justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold">

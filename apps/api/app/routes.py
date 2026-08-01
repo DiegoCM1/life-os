@@ -12,7 +12,12 @@ from .auth import require_secret
 from .config import now_mx, today_mx
 from .db import pool
 from .goals import GOAL_DEADLINE_HOUR, GOAL_FAIL_HOUR, GOALS, severity
-from .notion import applications_daily, applications_stats, applications_summary
+from .notion import (
+    applications_daily,
+    applications_insights,
+    applications_stats,
+    applications_summary,
+)
 
 router = APIRouter(dependencies=[Depends(require_secret)])
 
@@ -316,6 +321,16 @@ async def get_applications_stats() -> dict[str, Any]:
         import logging; logging.getLogger(__name__).error("Notion error: %s", e)
         return {"configured": True, "error": "notion_unavailable",
                 "total": 0, "status_counts": {}, "tier_counts": {}}
+
+
+@router.get("/applications/insights")
+async def get_applications_insights() -> dict[str, Any]:
+    try:
+        return await applications_insights()
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error("Notion error: %s", e)
+        return {"configured": True, "error": "notion_unavailable", "total": 0,
+                "status_counts": {}, "segments": {}, "weekly": [], "coverage": {}}
 
 
 @router.get("/applications/daily")

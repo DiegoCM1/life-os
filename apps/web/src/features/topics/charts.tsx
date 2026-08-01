@@ -161,6 +161,41 @@ export function WakeScatter({ data, target = 480, fail = 600 }: {
   );
 }
 
+/** Weekly application cohorts, stacked by how they ended up.
+ *
+ *  Cohorted by the week the application was SENT, so the most recent weeks are
+ *  right-censored — nothing sent 3 days ago has had time to be ghosted. Those
+ *  weeks render at reduced opacity and are named in the caption rather than
+ *  being silently dropped, which would flatter the recent numbers.
+ *
+ *  Each segment carries a 2px surface-colored stroke so adjacent fills read as
+ *  separate blocks (also the secondary encoding that keeps the stack legible
+ *  without relying on hue alone). */
+export function OutcomeStack({ data, series }: {
+  // outcome keys carry the numeric counts alongside the two fixed fields
+  data: { label: string; unresolved: boolean; [outcome: string]: string | number | boolean }[];
+  series: { key: string; label: string; color: string }[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
+        <CartesianGrid stroke={COLORS.grid} vertical={false} />
+        <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" />
+        <YAxis allowDecimals={false} {...axisProps} />
+        <Tooltip {...tooltipProps} />
+        {series.map((s) => (
+          <Bar key={s.key} dataKey={s.key} name={s.label} stackId="outcome" fill={s.color}
+               stroke={COLORS.tooltipBg} strokeWidth={2}>
+            {data.map((d, i) => (
+              <Cell key={i} fillOpacity={d.unresolved ? 0.35 : 1} />
+            ))}
+          </Bar>
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 /** Volume-per-day area chart (applications). */
 export function VolumeArea({ data, name }: {
   data: { date: string; value: number }[];

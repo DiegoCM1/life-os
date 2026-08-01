@@ -166,3 +166,66 @@ export const APPLICATION_FUNNEL = {
   offers: ['Offer'],
 };
 
+// ---------------------------------------------------------------------------
+// Conversion analytics. The API returns RAW per-status counts only; every
+// derived rate on the applications page comes from the mapping below, so the
+// funnel definition lives in exactly one place.
+// ---------------------------------------------------------------------------
+
+/** The four mutually exclusive outcome buckets every status falls into. */
+export const APPLICATION_OUTCOMES = {
+  advanced: [
+    'Interviewing',
+    'Offer',
+    'Dead - After HR',
+    'Dead - After technical interview',
+  ],
+  rejected: ['Dead - Application rejected'],
+  ghosted: ['Dead - Ghosted'],
+  pending: ['Applied'],
+} as const;
+
+export type OutcomeKey = keyof typeof APPLICATION_OUTCOMES;
+
+/** Stack/legend order + color for outcome charts. Validated for colorblind
+ *  separation against the card surface (worst adjacent ΔE 17.4, deutan) —
+ *  keep this order if you change hues, adjacency is what was checked. */
+export const OUTCOME_STYLE: { key: OutcomeKey; label: string; color: string }[] = [
+  { key: 'advanced', label: 'Reached a human', color: '#3ddc84' },
+  { key: 'ghosted', label: 'Ghosted', color: '#7d8f86' },
+  { key: 'rejected', label: 'Rejected', color: '#ffc233' },
+  { key: 'pending', label: 'Still open', color: '#22d3ee' },
+];
+
+/** Ordered funnel. `statuses: null` means "everything" (the top of the funnel).
+ *  Each stage counts applications that reached it *or died past it*. */
+export const APPLICATION_STAGES: { key: string; label: string; statuses: string[] | null }[] = [
+  { key: 'applied', label: 'Applied', statuses: null },
+  {
+    key: 'replied',
+    label: 'Got any reply',
+    statuses: [
+      'Dead - Application rejected',
+      'Dead - After HR',
+      'Dead - After technical interview',
+      'Interviewing',
+      'Offer',
+    ],
+  },
+  {
+    key: 'human',
+    label: 'Reached a human',
+    statuses: ['Dead - After HR', 'Dead - After technical interview', 'Interviewing', 'Offer'],
+  },
+  {
+    key: 'technical',
+    label: 'Reached technical',
+    statuses: ['Dead - After technical interview', 'Offer'],
+  },
+  { key: 'offer', label: 'Offer', statuses: ['Offer'] },
+];
+
+/** Below this many applications a per-segment rate is noise, not signal — the
+ *  UI still shows the row but marks it so you don't over-read a 1-of-3. */
+export const MIN_SEGMENT_N = 15;
+

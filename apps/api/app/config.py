@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     notion_date_prop: str = "Date"
     notion_status_prop: str = "Status"
     notion_tier_prop: str = "Tier"
+    # Segment dimensions for the conversion charts. Each is a Notion select;
+    # rows with the property unset fall into an explicit "(unset)" bucket rather
+    # than being dropped, so coverage gaps stay visible instead of silently
+    # skewing the rates.
+    notion_level_prop: str = "Level"
+    notion_source_prop: str = "Source"
+    notion_company_type_prop: str = "Company Type"
 
     # Optional — AI weekly analysis via OpenRouter (OpenAI-compatible API). When
     # openrouter_api_key is unset, summary generation degrades gracefully (returns
